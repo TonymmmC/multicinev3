@@ -1,109 +1,142 @@
-<?php
-class Usuario {
-    private $conn;
-    
-    public function __construct($db) {
-        $this->conn = $db;
+public function cerrarSesion($userId) {
+        $this->registrarAcceso($userId, 'LOGOUT');
+        session_destroy();
     }
     
-    public function login($email, $password) {
-        // Sanitizar el email
-        $email = filter_var($email, FILTER_SANITIZE_EMAIL);
+    // Obtener datos del perfil del usuario
+    public function obtenerPerfil($userId) {
+        $query = "SELECT u.id, u.email, u.ultimo_login, u.activo, u.rol_id,
+                         r.nombre as rol_nombre,
+                         pu.nombres, pu.apellidos, pu.fecha_nacimiento, 
+                         pu.celular, pu.direccion, pu.nit_ci,
+                         pu.idioma_preferido, pu.modo_oscuro,
+                         m.url as imagen_url
+                  FROM users u
+                  LEFT JOIN perfiles_usuario pu ON u.id = pu.user_id
+                  LEFT JOIN roles r ON u.rol_id = r.id
+                  LEFT JOIN multimedia m ON pu.imagen_id = m.id
+                  WHERE u.id = ? AND u.deleted_at IS NULL";
         
-        // Consulta
-        $query = "SELECT id, email, password, rol_id FROM users WHERE email = ? AND deleted_at IS NULL";
         $stmt = $this->conn->prepare($query);
-        $stmt->bind_param("s", $email);
+        $stmt->bind_param("i", $userId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result && $result->num_rows > 0) {
+            return $result->fetch_assoc();
+        }
+        
+        return null;
+    }
+    
+    // Actualizar perfil del usuario
+    public function actualizarPerfil($userId, $datos) {
+        // Sanitizar datos
+        $nombres = filter_var($datos['nombres'], FILTER_SANITIZE_STRING);
+        $apellidos = filter_var($datos['apellidos'], FILTER_SANITIZE_STRING);
+        $celular = filter_var($datos['celular'], FILTER_SANITIZE_STRING);
+        $direccion = filter_var($datos['direccion'], FILTER_SANITIZE_STRING);
+        $nitCi = filter_var($datos['nit_ci'], FILTER_SANITIZE_STRING);
+        $fechaNacimiento = !empty($datos['fecha_nacimiento']) ? $datos['fecha_nacimiento'] : null;
+        $idioma = $datos['idioma_preferido'] ?? 'es';
+        $modoOscuro = isset($datos['modo_oscuro']) ? 1 : 0;
+        
+        $this->conn->begin_transaction();
+        
+        try {
+            // Verificar si ya existe un perfil
+            $query = "SELECT id FROM perfiles_usuario WHERE user_id = ?";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bind_param("i", $userId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            if ($result->num_rows > 0) {
+                // Actualizar perfil existente
+                $query = "UPDATE perfiles_usuario SET 
+                          nombres = ?, 
+                          apellidos = ?, 
+                          fecha_nacimiento = ?, 
+                          celular = ?, 
+                          direccion = ?, 
+                          nit_ci = ?,
+                          idioma_preferido = ?,
+                          modo_oscuro = ?
+                          WHERE user_id = ?";
+                
+                $stmt = $this->conn->prepare($query);
+                $stmt->bind_param(
+                    "sssssssii", 
+                    $nombres, 
+                    $apellidos, 
+                    $fechaNacimiento, 
+                    $celular, 
+                    $direccion, 
+                    $nitCi,
+                    $idioma,
+                    $modoOscuro,
+                    $userId
+                );
+            } else {
+                // Crear nuevo perfil
+                $query = "INSERT INTO perfiles_usuario 
+                          (user_id, nombres, apellidos, fecha_nacimiento, celular, direccion, nit_ci, idioma_preferido, modo_oscuro) 
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                
+                $stmt = $this->conn->prepare($query);
+                $stmt->bind_param(
+                    "isssssssi", 
+                    $userId, 
+                    $nombres, 
+                    $apellidos, 
+                    $fechaNacimiento, 
+                    $celular, 
+                    $direccion, 
+                    $nitCi,
+                    $idioma,
+                    $modoOscuro
+                );
+            }
+            
+            $stmt->execute();
+            
+            $this->conn->commit();
+            return ['success' => true, 'message' => 'Perfil actualizado correctamente'];
+        } catch (Exception $e) {
+            $this->conn->rollback();
+            return ['success' => false, 'message' => 'Error al actualizar el perfil: ' . $e->getMessage()];
+        }
+    }
+    
+    // Cambiar contraseña
+    public function cambiarPassword($userId, $currentPassword, $newPassword) {
+        // Verificar contraseña actual
+        $query = "SELECT password FROM users WHERE id = ?";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bind_param("i", $userId);
         $stmt->execute();
         $result = $stmt->get_result();
         
         if ($result->num_rows === 1) {
             $user = $result->fetch_assoc();
             
-            // Verificar contraseña (la tabla tiene hash de contraseña)
-            if (password_verify($password, $user['password'])) {
-                // Iniciar sesión
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['email'] = $user['email'];
-                $_SESSION['rol_id'] = $user['rol_id'];
+            if (password_verify($currentPassword, $user['password'])) {
+                // Contraseña actual correcta, actualizar a la nueva
+                $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
                 
-                // Actualizar último login
-                $this->updateLastLogin($user['id']);
+                $query = "UPDATE users SET password = ? WHERE id = ?";
+                $stmt = $this->conn->prepare($query);
+                $stmt->bind_param("si", $passwordHash, $userId);
                 
-                // Registrar en logs_acceso
-                $this->registrarAcceso($user['id'], 'LOGIN');
-                
-                return true;
+                if ($stmt->execute()) {
+                    return ['success' => true, 'message' => 'Contraseña actualizada correctamente'];
+                } else {
+                    return ['success' => false, 'message' => 'Error al actualizar la contraseña'];
+                }
+            } else {
+                return ['success' => false, 'message' => 'La contraseña actual es incorrecta'];
             }
         }
         
-        return false;
+        return ['success' => false, 'message' => 'Usuario no encontrado'];
     }
-    
-    private function updateLastLogin($userId) {
-        $query = "UPDATE users SET ultimo_login = NOW() WHERE id = ?";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bind_param("i", $userId);
-        $stmt->execute();
-    }
-    
-    private function registrarAcceso($userId, $tipo) {
-        $ip = $_SERVER['REMOTE_ADDR'];
-        $userAgent = $_SERVER['HTTP_USER_AGENT'];
-        
-        $query = "INSERT INTO logs_acceso (user_id, tipo_acceso, ip_origen, user_agent) 
-                  VALUES (?, ?, ?, ?)";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bind_param("isss", $userId, $tipo, $ip, $userAgent);
-        $stmt->execute();
-    }
-    
-    public function registrar($email, $password, $nombres, $apellidos) {
-        // Sanitizar datos
-        $email = filter_var($email, FILTER_SANITIZE_EMAIL);
-        
-        // Verificar si el email ya existe
-        $query = "SELECT id FROM users WHERE email = ?";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        if ($result->num_rows > 0) {
-            return ['success' => false, 'message' => 'Este email ya está registrado'];
-        }
-        
-        // Hash de la contraseña
-        $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-        
-        // Insertar usuario
-        $this->conn->begin_transaction();
-        
-        try {
-            // Crear usuario
-            $query = "INSERT INTO users (email, password, rol_id) VALUES (?, ?, 3)";
-            $stmt = $this->conn->prepare($query);
-            $stmt->bind_param("ss", $email, $passwordHash);
-            $stmt->execute();
-            
-            $userId = $this->conn->insert_id;
-            
-            // Crear perfil
-            $query = "INSERT INTO perfiles_usuario (user_id, nombres, apellidos) VALUES (?, ?, ?)";
-            $stmt = $this->conn->prepare($query);
-            $stmt->bind_param("iss", $userId, $nombres, $apellidos);
-            $stmt->execute();
-            
-            $this->conn->commit();
-            return ['success' => true, 'message' => 'Usuario registrado correctamente'];
-        } catch (Exception $e) {
-            $this->conn->rollback();
-            return ['success' => false, 'message' => 'Error al registrar: ' . $e->getMessage()];
-        }
-    }
-    
-    public function cerrarSesion($userId) {
-        $this->registrarAcceso($userId, 'LOGOUT');
-        session_destroy();
-    }
-}
