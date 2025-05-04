@@ -3,6 +3,7 @@ require_once 'includes/functions.php';
 iniciarSesion();
 $conn = require 'config/database.php';
 
+// Cargar controladores y modelos
 require_once 'controllers/Pelicula.php';
 require_once 'models/Pelicula.php';
 
@@ -14,25 +15,23 @@ $cineId = isset($_GET['cine']) ? intval($_GET['cine']) : null;
 $formatoId = isset($_GET['formato']) ? intval($_GET['formato']) : null;
 $orden = isset($_GET['orden']) ? sanitizeInput($_GET['orden']) : 'estreno';
 
-// Construir la consulta base
-$query = "SELECT p.id, p.titulo, p.titulo_original, p.duracion_min, p.fecha_estreno, 
-                 c.codigo as clasificacion, c.descripcion as clasificacion_desc,
-                 m.url as poster_url
-          FROM peliculas p
-          LEFT JOIN clasificaciones c ON p.clasificacion_id = c.id
-          LEFT JOIN multimedia_pelicula mp ON p.id = mp.pelicula_id AND mp.proposito = 'poster'
-          LEFT JOIN multimedia m ON mp.multimedia_id = m.id";
+// Construir la consulta base para películas
+$queryPeliculas = "SELECT DISTINCT p.id, p.titulo, p.titulo_original, p.duracion_min, 
+                p.fecha_estreno, p.estado,
+                c.codigo as clasificacion, c.descripcion as clasificacion_desc
+         FROM peliculas p
+         LEFT JOIN clasificaciones c ON p.clasificacion_id = c.id";
 
 // Añadir condición para películas en cartelera
-$query .= " WHERE p.estado IN ('estreno', 'regular') AND p.deleted_at IS NULL";
+$queryPeliculas .= " WHERE p.estado IN ('estreno', 'regular') AND p.deleted_at IS NULL";
 
 // Añadir filtros si existen
 if ($generoId) {
-    $query .= " AND p.id IN (SELECT pelicula_id FROM genero_pelicula WHERE genero_id = ?)";
+    $queryPeliculas .= " AND p.id IN (SELECT pelicula_id FROM genero_pelicula WHERE genero_id = ?)";
 }
 
 if ($cineId) {
-    $query .= " AND p.id IN (
+    $queryPeliculas .= " AND p.id IN (
                 SELECT DISTINCT f.pelicula_id 
                 FROM funciones f 
                 JOIN salas s ON f.sala_id = s.id 
@@ -41,7 +40,7 @@ if ($cineId) {
 }
 
 if ($formatoId) {
-    $query .= " AND p.id IN (
+    $queryPeliculas .= " AND p.id IN (
                 SELECT DISTINCT f.pelicula_id 
                 FROM funciones f 
                 WHERE f.formato_proyeccion_id = ? AND f.fecha_hora > NOW()
@@ -51,19 +50,19 @@ if ($formatoId) {
 // Ordenar resultados
 switch ($orden) {
     case 'titulo':
-        $query .= " ORDER BY p.titulo ASC";
+        $queryPeliculas .= " ORDER BY p.titulo ASC";
         break;
     case 'duracion':
-        $query .= " ORDER BY p.duracion_min ASC";
+        $queryPeliculas .= " ORDER BY p.duracion_min ASC";
         break;
     case 'estreno':
     default:
-        $query .= " ORDER BY p.fecha_estreno DESC";
+        $queryPeliculas .= " ORDER BY p.fecha_estreno DESC";
         break;
 }
 
 // Preparar y ejecutar la consulta
-$stmt = $conn->prepare($query);
+$stmtPeliculas = $conn->prepare($queryPeliculas);
 
 // Bind de parámetros si hay filtros
 $paramTypes = '';
@@ -85,22 +84,40 @@ if ($formatoId) {
 }
 
 if (!empty($paramTypes)) {
-    $stmt->bind_param($paramTypes, ...$paramValues);
+    $stmtPeliculas->bind_param($paramTypes, ...$paramValues);
 }
 
-$stmt->execute();
-$result = $stmt->get_result();
+$stmtPeliculas->execute();
+$resultPeliculas = $stmtPeliculas->get_result();
 
 $peliculas = [];
-if ($result && $result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
+if ($resultPeliculas && $resultPeliculas->num_rows > 0) {
+    while ($row = $resultPeliculas->fetch_assoc()) {
+        // Obtener póster para cada película
+        $queryPoster = "SELECT m.url 
+                        FROM multimedia_pelicula mp 
+                        JOIN multimedia m ON mp.multimedia_id = m.id 
+                        WHERE mp.pelicula_id = ? AND mp.proposito = 'poster'
+                        LIMIT 1";
+        $stmtPoster = $conn->prepare($queryPoster);
+        $stmtPoster->bind_param("i", $row['id']);
+        $stmtPoster->execute();
+        $resultPoster = $stmtPoster->get_result();
+        
+        if ($resultPoster && $resultPoster->num_rows > 0) {
+            $poster = $resultPoster->fetch_assoc();
+            $row['poster_url'] = $poster['url'];
+        } else {
+            $row['poster_url'] = 'assets/img/poster-default.jpg';
+        }
+        
         // Obtener géneros para cada película
-        $query = "SELECT g.id, g.nombre
-                  FROM genero_pelicula gp
-                  JOIN generos g ON gp.genero_id = g.id
-                  WHERE gp.pelicula_id = ?";
-                  
-        $stmtGeneros = $conn->prepare($query);
+        $queryGeneros = "SELECT g.id, g.nombre
+                      FROM genero_pelicula gp
+                      JOIN generos g ON gp.genero_id = g.id
+                      WHERE gp.pelicula_id = ?";
+                      
+        $stmtGeneros = $conn->prepare($queryGeneros);
         $stmtGeneros->bind_param("i", $row['id']);
         $stmtGeneros->execute();
         $resultGeneros = $stmtGeneros->get_result();
@@ -116,34 +133,34 @@ if ($result && $result->num_rows > 0) {
 }
 
 // Obtener lista de géneros para filtros
-$query = "SELECT id, nombre FROM generos ORDER BY nombre";
-$result = $conn->query($query);
+$queryGeneros = "SELECT id, nombre FROM generos ORDER BY nombre";
+$resultGeneros = $conn->query($queryGeneros);
 $generos = [];
 
-if ($result && $result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
+if ($resultGeneros && $resultGeneros->num_rows > 0) {
+    while ($row = $resultGeneros->fetch_assoc()) {
         $generos[] = $row;
     }
 }
 
 // Obtener lista de cines para filtros
-$query = "SELECT id, nombre, ciudad_id FROM cines WHERE activo = 1 ORDER BY nombre";
-$result = $conn->query($query);
+$queryCines = "SELECT id, nombre, ciudad_id FROM cines WHERE activo = 1 ORDER BY nombre";
+$resultCines = $conn->query($queryCines);
 $cines = [];
 
-if ($result && $result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
+if ($resultCines && $resultCines->num_rows > 0) {
+    while ($row = $resultCines->fetch_assoc()) {
         $cines[] = $row;
     }
 }
 
 // Obtener lista de formatos para filtros
-$query = "SELECT id, nombre, recargo FROM formatos WHERE tipo = 'proyeccion' ORDER BY nombre";
-$result = $conn->query($query);
+$queryFormatos = "SELECT id, nombre, recargo FROM formatos WHERE tipo = 'proyeccion' ORDER BY nombre";
+$resultFormatos = $conn->query($queryFormatos);
 $formatos = [];
 
-if ($result && $result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
+if ($resultFormatos && $resultFormatos->num_rows > 0) {
+    while ($row = $resultFormatos->fetch_assoc()) {
         $formatos[] = $row;
     }
 }
@@ -161,7 +178,7 @@ require_once 'includes/header.php';
 
 <div class="row mb-4">
     <div class="col-md-12">
-        <div class="card">
+        <div class="card shadow-sm">
             <div class="card-header bg-light">
                 <h5 class="mb-0">Filtros</h5>
             </div>
@@ -216,8 +233,12 @@ require_once 'includes/header.php';
                     </div>
                     
                     <div class="col-md-12 text-center">
-                        <button type="submit" class="btn btn-primary">Aplicar filtros</button>
-                        <a href="cartelera.php" class="btn btn-outline-secondary ml-2">Limpiar filtros</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-filter"></i> Aplicar filtros
+                        </button>
+                        <a href="cartelera.php" class="btn btn-outline-secondary ml-2">
+                            <i class="fas fa-times"></i> Limpiar filtros
+                        </a>
                     </div>
                 </form>
             </div>
@@ -229,9 +250,14 @@ require_once 'includes/header.php';
     <?php if (!empty($peliculas)): ?>
         <?php foreach ($peliculas as $pelicula): ?>
             <div class="col-md-4 col-lg-3 mb-4">
-                <div class="card h-100">
-                    <img src="<?php echo $pelicula['poster_url'] ?? 'assets/img/poster-default.jpg'; ?>" 
-                         class="card-img-top" alt="<?php echo $pelicula['titulo']; ?>">
+                <div class="card h-100 shadow-sm film-card">
+                    <div class="position-relative">
+                        <img src="<?php echo $pelicula['poster_url']; ?>" 
+                             class="card-img-top" alt="<?php echo $pelicula['titulo']; ?>">
+                        <?php if ($pelicula['estado'] == 'estreno'): ?>
+                            <span class="badge badge-danger position-absolute" style="top: 10px; right: 10px;">ESTRENO</span>
+                        <?php endif; ?>
+                    </div>
                     <div class="card-body">
                         <h5 class="card-title"><?php echo $pelicula['titulo']; ?></h5>
                         
@@ -253,12 +279,16 @@ require_once 'includes/header.php';
                         <?php endif; ?>
                         
                         <p class="card-text small">
-                            <strong>Estreno:</strong> <?php echo $peliculaController->formatearFecha($pelicula['fecha_estreno']); ?>
+                            <strong>Estreno:</strong> <?php echo date('d/m/Y', strtotime($pelicula['fecha_estreno'])); ?>
                         </p>
                     </div>
                     <div class="card-footer bg-transparent text-center">
-                        <a href="pelicula.php?id=<?php echo $pelicula['id']; ?>" class="btn btn-sm btn-primary">Ver detalles</a>
-                        <a href="reserva.php?pelicula=<?php echo $pelicula['id']; ?>" class="btn btn-sm btn-success">Reservar</a>
+                        <a href="pelicula.php?id=<?php echo $pelicula['id']; ?>" class="btn btn-sm btn-primary">
+                            <i class="fas fa-info-circle"></i> Ver detalles
+                        </a>
+                        <a href="reserva.php?pelicula=<?php echo $pelicula['id']; ?>" class="btn btn-sm btn-success">
+                            <i class="fas fa-ticket-alt"></i> Reservar
+                        </a>
                     </div>
                 </div>
             </div>
@@ -266,13 +296,13 @@ require_once 'includes/header.php';
     <?php else: ?>
         <div class="col-12">
             <div class="alert alert-info">
-                No se encontraron películas con los filtros seleccionados.
+                <i class="fas fa-info-circle"></i> No se encontraron películas con los filtros seleccionados.
             </div>
         </div>
     <?php endif; ?>
 </div>
 
-<!-- Paginación -->
+<!-- Paginación (para implementación futura) -->
 <nav aria-label="Paginación de cartelera" class="mt-4">
     <ul class="pagination justify-content-center">
         <li class="page-item disabled">
@@ -297,8 +327,42 @@ document.addEventListener('DOMContentLoaded', function() {
             this.form.submit();
         });
     });
+    
+    // Efecto de hover para las tarjetas de películas
+    const filmCards = document.querySelectorAll('.film-card');
+    filmCards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.classList.add('shadow');
+            this.style.transform = 'translateY(-5px)';
+            this.style.transition = 'transform 0.3s ease, box-shadow 0.3s ease';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.classList.remove('shadow');
+            this.style.transform = 'translateY(0)';
+        });
+    });
 });
 </script>
+
+<style>
+.film-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.film-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+.card-img-top {
+    height: 350px;
+    object-fit: cover;
+}
+@media (max-width: 768px) {
+    .card-img-top {
+        height: 250px;
+    }
+}
+</style>
 
 <?php
 // Incluir footer

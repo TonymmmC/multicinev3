@@ -8,6 +8,7 @@ if (estaLogueado()) {
 }
 
 $conn = require '../config/database.php';
+// Asegúrate de que estos archivos existan y estén en las rutas correctas
 require_once '../controllers/Usuario.php';
 require_once '../models/Usuario.php';
 
@@ -21,12 +22,12 @@ $datos = [
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Recoger los datos del formulario
-    $email = sanitizeInput($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $passwordConfirm = $_POST['password_confirm'] ?? '';
-    $nombres = sanitizeInput($_POST['nombres'] ?? '');
-    $apellidos = sanitizeInput($_POST['apellidos'] ?? '');
+    // Recoger los datos del formulario con verificación
+    $email = isset($_POST['email']) ? sanitizeInput($_POST['email']) : '';
+    $password = isset($_POST['password']) ? $_POST['password'] : '';
+    $passwordConfirm = isset($_POST['password_confirm']) ? $_POST['password_confirm'] : '';
+    $nombres = isset($_POST['nombres']) ? sanitizeInput($_POST['nombres']) : '';
+    $apellidos = isset($_POST['apellidos']) ? sanitizeInput($_POST['apellidos']) : '';
     
     // Guardar los datos para rellenar el formulario en caso de error
     $datos = [
@@ -35,17 +36,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'apellidos' => $apellidos
     ];
     
-    // Intentar registrar al usuario
-    $resultado = $usuarioController->registro($email, $password, $passwordConfirm, $nombres, $apellidos);
+    // Validaciones básicas antes de intentar registrar
+    if (empty($email)) {
+        $errores[] = 'El email es obligatorio';
+    }
     
-    if ($resultado['success']) {
-        setMensaje($resultado['message'], 'success');
-        redirect('/multicinev3/auth/login.php');
-    } else {
-        if (isset($resultado['errores'])) {
-            $errores = $resultado['errores'];
+    if (empty($password)) {
+        $errores[] = 'La contraseña es obligatoria';
+    }
+    
+    if ($password !== $passwordConfirm) {
+        $errores[] = 'Las contraseñas no coinciden';
+    }
+    
+    if (empty($nombres)) {
+        $errores[] = 'Los nombres son obligatorios';
+    }
+    
+    if (empty($apellidos)) {
+        $errores[] = 'Los apellidos son obligatorios';
+    }
+    
+    // Solo intentar registrar si no hay errores de validación básica
+    if (empty($errores)) {
+        // Intentar registrar al usuario
+        $resultado = $usuarioController->registro($email, $password, $passwordConfirm, $nombres, $apellidos);
+        
+        if ($resultado && isset($resultado['success']) && $resultado['success']) {
+            setMensaje($resultado['message'] ?? 'Usuario registrado correctamente', 'success');
+            redirect('/multicinev3/auth/login.php');
         } else {
-            $errores[] = $resultado['message'];
+            if (isset($resultado['errores']) && is_array($resultado['errores'])) {
+                $errores = array_merge($errores, $resultado['errores']);
+            } else {
+                $errores[] = $resultado['message'] ?? 'Error en el registro';
+            }
         }
     }
 }

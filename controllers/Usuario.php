@@ -92,5 +92,15 @@ class UsuarioController {
     public function cambiarPassword($userId, $currentPassword, $newPassword) {
         return $this->usuarioModel->cambiarPassword($userId, $currentPassword, $newPassword);
     }
+
+    // Enviar email de recuperación de contraseña
+    public function enviarRecuperacionPassword($email) {
+        return $this->usuarioModel->enviarRecuperacionPassword($email);
+    }
+
+    // Restablecer contraseña
+    public function restablecerPassword($email, $token, $newPassword) {
+        return $this->usuarioModel->restablecerPassword($email, $token, $newPassword);
+    }
 }
 ?>
