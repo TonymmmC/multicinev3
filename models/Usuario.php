@@ -10,9 +10,9 @@ class Usuario {
         // Buscar usuario por email
         $query = "SELECT u.id, u.email, u.password, u.rol_id, 
                         pu.nombres, pu.apellidos 
-                 FROM users u
-                 LEFT JOIN perfiles_usuario pu ON u.id = pu.user_id
-                 WHERE u.email = ? AND u.activo = 1 AND u.deleted_at IS NULL";
+                FROM users u
+                LEFT JOIN perfiles_usuario pu ON u.id = pu.user_id
+                WHERE u.email = ? AND u.activo = 1 AND u.deleted_at IS NULL";
         
         $stmt = $this->conn->prepare($query);
         $stmt->bind_param("s", $email);
@@ -48,6 +48,18 @@ class Usuario {
         $_SESSION['apellidos'] = $user['apellidos'] ?? '';
         
         return true;
+    }
+
+    // Agregar método para registrar intentos fallidos
+    public function registrarIntentoFallido($email) {
+        $query = "INSERT INTO login_attempts (email, ip_address, attempted_at) 
+                VALUES (?, ?, NOW())";
+        
+        $ip = $_SERVER['REMOTE_ADDR'] ?? null;
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bind_param("ss", $email, $ip);
+        $stmt->execute();
     }
     
     public function registrar($email, $password, $nombres, $apellidos) {
@@ -355,6 +367,18 @@ class Usuario {
             'success' => true,
             'message' => 'Tu contraseña ha sido actualizada correctamente. Ahora puedes iniciar sesión con tu nueva contraseña.'
         ];
+    }
+    // Método para detectar el tipo de dispositivo
+    private function detectarDispositivo() {
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        
+        if (preg_match('/(android|iphone|ipad|ipod|blackberry|windows phone)/i', $userAgent)) {
+            return 'Móvil';
+        } elseif (preg_match('/(tablet|ipad)/i', $userAgent)) {
+            return 'Tablet';
+        } else {
+            return 'Computadora';
+        }
     }
 
     // Añade aquí cualquier otro método que necesites...

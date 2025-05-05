@@ -24,6 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             setMensaje('Has iniciado sesión correctamente', 'success');
             redirect('/multicinev3/');
         } else {
+            // Registrar intento fallido
+            $usuario->registrarIntentoFallido($email);
             $error = 'Credenciales incorrectas';
         }
     }

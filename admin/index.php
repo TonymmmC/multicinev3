@@ -207,6 +207,89 @@ require_once 'includes/header.php';
     </div>
 </div>
 
+<!-- Añadir en la sección de estadísticas -->
+<div class="row mt-4">
+    <div class="col-md-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Estadísticas de Acceso</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <?php
+                    // Contar logins exitosos
+                    $query = "SELECT COUNT(*) as total FROM logs_acceso WHERE tipo_acceso = 'LOGIN'";
+                    $result = $conn->query($query);
+                    $loginsExitosos = $result && $result->num_rows > 0 ? $result->fetch_assoc()['total'] : 0;
+                    
+                    // Contar intentos fallidos
+                    $query = "SELECT COUNT(*) as total FROM login_attempts";
+                    $result = $conn->query($query);
+                    $intentosFallidos = $result && $result->num_rows > 0 ? $result->fetch_assoc()['total'] : 0;
+                    
+                    // Logins de hoy
+                    $query = "SELECT COUNT(*) as total FROM logs_acceso 
+                              WHERE tipo_acceso = 'LOGIN' AND DATE(created_at) = CURDATE()";
+                    $result = $conn->query($query);
+                    $loginsHoy = $result && $result->num_rows > 0 ? $result->fetch_assoc()['total'] : 0;
+                    
+                    // Intentos fallidos de hoy
+                    $query = "SELECT COUNT(*) as total FROM login_attempts 
+                              WHERE DATE(attempted_at) = CURDATE()";
+                    $result = $conn->query($query);
+                    $intentosFallidosHoy = $result && $result->num_rows > 0 ? $result->fetch_assoc()['total'] : 0;
+                    ?>
+                    
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white">
+                            <div class="card-body text-center">
+                                <h5>Logins Exitosos</h5>
+                                <h2><?php echo $loginsExitosos; ?></h2>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="card bg-danger text-white">
+                            <div class="card-body text-center">
+                                <h5>Intentos Fallidos</h5>
+                                <h2><?php echo $intentosFallidos; ?></h2>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="card bg-info text-white">
+                            <div class="card-body text-center">
+                                <h5>Logins Hoy</h5>
+                                <h2><?php echo $loginsHoy; ?></h2>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body text-center">
+                                <h5>Intentos Fallidos Hoy</h5>
+                                <h2><?php echo $intentosFallidosHoy; ?></h2>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-3">
+                    <a href="logs-acceso.php" class="btn btn-primary mr-2">
+                        <i class="fas fa-user-clock"></i> Ver Logs de Acceso
+                    </a>
+                    <a href="intentos-fallidos.php" class="btn btn-secondary">
+                        <i class="fas fa-user-shield"></i> Ver Intentos Fallidos
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <?php
 // Incluir footer
 require_once 'includes/footer.php';

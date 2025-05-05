@@ -45,6 +45,19 @@
                 <i class="fas fa-users"></i> Usuarios
             </a>
         </li>
+        <!-- Añadir esto dentro de la sección "CONFIGURACIÓN" -->
+        <li class="nav-item">
+            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'logs-acceso.php' ? 'active' : ''; ?>" 
+            href="logs-acceso.php">
+                <i class="fas fa-user-clock"></i> Logs de Acceso
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'intentos-fallidos.php' ? 'active' : ''; ?>" 
+            href="intentos-fallidos.php">
+                <i class="fas fa-user-shield"></i> Intentos Fallidos
+            </a>
+        </li>
         <li class="nav-item">
             <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'salas.php' ? 'active' : ''; ?>" 
                href="salas.php">
