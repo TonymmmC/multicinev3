@@ -1,7 +1,19 @@
 // Cuando el DOM esté cargado
 document.addEventListener('DOMContentLoaded', function() {
+    // Cambiar estilo de navbar al hacer scroll
+    window.addEventListener('scroll', function() {
+        if (window.scrollY > 100) {
+            document.querySelector('.navbar').classList.add('scrolled');
+        } else {
+            document.querySelector('.navbar').classList.remove('scrolled');
+        }
+    });
+    
     // Inicializar tooltips de Bootstrap
     $('[data-toggle="tooltip"]').tooltip();
+    
+    // Inicializar popovers de Bootstrap
+    $('[data-toggle="popover"]').popover();
     
     // Cerrar alertas automáticamente después de 5 segundos
     setTimeout(function() {
@@ -196,4 +208,51 @@ document.addEventListener('DOMContentLoaded', function() {
             'albumLabel': "Imagen %1 de %2"
         });
     }
+    
+    // Cerrar los menús dropdown al hacer clic fuera
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('.dropdown-menu').length && !$(e.target).hasClass('dropdown-toggle')) {
+            $('.dropdown-menu').removeClass('show');
+            $('.dropdown-toggle').attr('aria-expanded', 'false');
+        }
+    });
 });
+
+// Función para agregar películas a favoritos
+function agregarFavorito(peliculaId) {
+    if (!peliculaId) return;
+    
+    $.ajax({
+        url: 'favoritos.php',
+        type: 'POST',
+        data: { 
+            pelicula_id: peliculaId,
+            action: 'agregar'
+        },
+        success: function(response) {
+            try {
+                const data = JSON.parse(response);
+                if (data.success) {
+                    alert(data.message || 'Película añadida a favoritos');
+                } else {
+                    alert(data.message || 'Error al añadir a favoritos');
+                }
+            } catch (e) {
+                console.error('Error al procesar la respuesta:', e);
+            }
+        },
+        error: function() {
+            alert('Error de conexión al intentar agregar a favoritos');
+        }
+    });
+}
+
+// Función para cambiar de cine seleccionado
+function cambiarCine(cineId) {
+    if (!cineId) return;
+    
+    // Redirigir a la página actual con el nuevo cine seleccionado
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.set('cine', cineId);
+    window.location.href = currentUrl.toString();
+}
