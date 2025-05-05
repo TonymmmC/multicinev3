@@ -52,12 +52,12 @@ $conn = require __DIR__ . '/../config/database.php';
                                 <a class="dropdown-item" href="/multicinev3/auth/logout.php">Cerrar Sesión</a>
                             </div>
                         </li>
-                    <?php else: ?>
+                        <?php else: ?>
                         <li class="nav-item">
-                            <a class="nav-link" href="auth/login.php">Iniciar Sesión</a>
+                            <a class="nav-link" href="/multicinev3/auth/login.php">Iniciar Sesión</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="auth/register.php">Registrarse</a>
+                            <a class="nav-link" href="/multicinev3/auth/register.php">Registrarse</a>
                         </li>
                     <?php endif; ?>
                 </ul>
