@@ -11,6 +11,7 @@ $conn = require __DIR__ . '/../config/database.php';
     <title>Multicine - La mejor experiencia cinematográfica</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="/multicinev3/assets/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -53,10 +54,10 @@ $conn = require __DIR__ . '/../config/database.php';
                         </li>
                     <?php else: ?>
                         <li class="nav-item">
-                            <a class="nav-link" href="/multicinev3/auth/login.php">Iniciar Sesión</a>
+                            <a class="nav-link" href="auth/login.php">Iniciar Sesión</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/multicinev3/auth/register.php">Registrarse</a>
+                            <a class="nav-link" href="auth/register.php">Registrarse</a>
                         </li>
                     <?php endif; ?>
                 </ul>

@@ -12,8 +12,8 @@ if (!$conn) {
     die("Error de conexión: " . mysqli_connect_error());
 }
 
-// Establecer charset
-mysqli_set_charset($conn, "utf8");
+// Establecer charset para soportar emojis
+mysqli_set_charset($conn, "utf8mb4");
 
 return $conn;
 ?>

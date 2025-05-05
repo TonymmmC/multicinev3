@@ -3,11 +3,16 @@ require_once 'includes/functions.php';
 iniciarSesion();
 $conn = require 'config/database.php';
 
-// Cargar controladores y modelos
 require_once 'controllers/Pelicula.php';
 require_once 'models/Pelicula.php';
 
 $peliculaController = new PeliculaController($conn);
+
+// Configuración de paginación
+$peliculasPorPagina = 12;
+$paginaActual = isset($_GET['pagina']) ? intval($_GET['pagina']) : 1;
+if ($paginaActual < 1) $paginaActual = 1;
+$offset = ($paginaActual - 1) * $peliculasPorPagina;
 
 // Obtener filtros
 $generoId = isset($_GET['genero']) ? intval($_GET['genero']) : null;
@@ -15,54 +20,141 @@ $cineId = isset($_GET['cine']) ? intval($_GET['cine']) : null;
 $formatoId = isset($_GET['formato']) ? intval($_GET['formato']) : null;
 $orden = isset($_GET['orden']) ? sanitizeInput($_GET['orden']) : 'estreno';
 
-// Construir la consulta base para películas
-$queryPeliculas = "SELECT DISTINCT p.id, p.titulo, p.titulo_original, p.duracion_min, 
-                p.fecha_estreno, p.estado,
-                c.codigo as clasificacion, c.descripcion as clasificacion_desc
-         FROM peliculas p
-         LEFT JOIN clasificaciones c ON p.clasificacion_id = c.id";
+// Construir la consulta base para contar total de registros
+$queryTotal = "SELECT COUNT(DISTINCT p.id) as total
+          FROM peliculas p";
 
-// Añadir condición para películas en cartelera
-$queryPeliculas .= " WHERE p.estado IN ('estreno', 'regular') AND p.deleted_at IS NULL";
-
-// Añadir filtros si existen
+// Para el JOIN condicional con géneros
 if ($generoId) {
-    $queryPeliculas .= " AND p.id IN (SELECT pelicula_id FROM genero_pelicula WHERE genero_id = ?)";
+    $queryTotal .= " JOIN genero_pelicula gp ON p.id = gp.pelicula_id";
+}
+
+// Para el JOIN condicional con cines
+if ($cineId) {
+    $queryTotal .= " JOIN funciones f ON p.id = f.pelicula_id
+                     JOIN salas s ON f.sala_id = s.id";
+}
+
+// Para el JOIN condicional con formatos
+if ($formatoId) {
+    // Si ya hemos hecho JOIN con funciones, no lo hacemos de nuevo
+    if (!$cineId) {
+        $queryTotal .= " JOIN funciones f ON p.id = f.pelicula_id";
+    }
+}
+
+// Condiciones WHERE
+$queryTotal .= " WHERE p.estado IN ('estreno', 'regular') AND p.deleted_at IS NULL";
+
+// Añadir filtros específicos
+if ($generoId) {
+    $queryTotal .= " AND gp.genero_id = ?";
 }
 
 if ($cineId) {
-    $queryPeliculas .= " AND p.id IN (
-                SELECT DISTINCT f.pelicula_id 
-                FROM funciones f 
-                JOIN salas s ON f.sala_id = s.id 
-                WHERE s.cine_id = ? AND f.fecha_hora > NOW()
-            )";
+    $queryTotal .= " AND s.cine_id = ? AND f.fecha_hora > NOW()";
 }
 
 if ($formatoId) {
-    $queryPeliculas .= " AND p.id IN (
-                SELECT DISTINCT f.pelicula_id 
-                FROM funciones f 
-                WHERE f.formato_proyeccion_id = ? AND f.fecha_hora > NOW()
-            )";
+    $queryTotal .= " AND f.formato_proyeccion_id = ? AND f.fecha_hora > NOW()";
+}
+
+// Preparar y ejecutar la consulta de conteo
+$stmtTotal = $conn->prepare($queryTotal);
+
+// Binding para conteo
+$paramTypes = '';
+$paramValues = [];
+
+if ($generoId) {
+    $paramTypes .= 'i';
+    $paramValues[] = $generoId;
+}
+
+if ($cineId) {
+    $paramTypes .= 'i';
+    $paramValues[] = $cineId;
+}
+
+if ($formatoId) {
+    $paramTypes .= 'i';
+    $paramValues[] = $formatoId;
+}
+
+if (!empty($paramTypes)) {
+    $stmtTotal->bind_param($paramTypes, ...$paramValues);
+}
+
+$stmtTotal->execute();
+$resultTotal = $stmtTotal->get_result();
+$rowTotal = $resultTotal->fetch_assoc();
+$totalPeliculas = $rowTotal['total'];
+
+// Calcular número total de páginas
+$totalPaginas = ceil($totalPeliculas / $peliculasPorPagina);
+if ($paginaActual > $totalPaginas && $totalPaginas > 0) {
+    $paginaActual = $totalPaginas;
+    $offset = ($paginaActual - 1) * $peliculasPorPagina;
+}
+
+// Construir la consulta para obtener peliculas de la página actual
+$query = "SELECT DISTINCT p.id, p.titulo, p.titulo_original, p.duracion_min, p.fecha_estreno, 
+                 c.codigo as clasificacion, c.descripcion as clasificacion_desc,
+                 m.url as poster_url
+          FROM peliculas p
+          LEFT JOIN clasificaciones c ON p.clasificacion_id = c.id
+          LEFT JOIN multimedia_pelicula mp ON p.id = mp.pelicula_id AND mp.proposito = 'poster'
+          LEFT JOIN multimedia m ON mp.multimedia_id = m.id";
+
+// Añadir JOINs condicionales
+if ($generoId) {
+    $query .= " JOIN genero_pelicula gp ON p.id = gp.pelicula_id";
+}
+
+if ($cineId) {
+    $query .= " JOIN funciones f ON p.id = f.pelicula_id
+                JOIN salas s ON f.sala_id = s.id";
+}
+
+if ($formatoId && !$cineId) {
+    $query .= " JOIN funciones f ON p.id = f.pelicula_id";
+}
+
+// Añadir condición para películas en cartelera
+$query .= " WHERE p.estado IN ('estreno', 'regular') AND p.deleted_at IS NULL";
+
+// Añadir filtros si existen
+if ($generoId) {
+    $query .= " AND gp.genero_id = ?";
+}
+
+if ($cineId) {
+    $query .= " AND s.cine_id = ? AND f.fecha_hora > NOW()";
+}
+
+if ($formatoId) {
+    $query .= " AND f.formato_proyeccion_id = ? AND f.fecha_hora > NOW()";
 }
 
 // Ordenar resultados
 switch ($orden) {
     case 'titulo':
-        $queryPeliculas .= " ORDER BY p.titulo ASC";
+        $query .= " ORDER BY p.titulo ASC";
         break;
     case 'duracion':
-        $queryPeliculas .= " ORDER BY p.duracion_min ASC";
+        $query .= " ORDER BY p.duracion_min ASC";
         break;
     case 'estreno':
     default:
-        $queryPeliculas .= " ORDER BY p.fecha_estreno DESC";
+        $query .= " ORDER BY p.fecha_estreno DESC";
         break;
 }
 
+// Añadir limitación para paginación
+$query .= " LIMIT ?, ?";
+
 // Preparar y ejecutar la consulta
-$stmtPeliculas = $conn->prepare($queryPeliculas);
+$stmt = $conn->prepare($query);
 
 // Bind de parámetros si hay filtros
 $paramTypes = '';
@@ -83,40 +175,27 @@ if ($formatoId) {
     $paramValues[] = $formatoId;
 }
 
+// Añadir parámetros de paginación
+$paramTypes .= 'ii';
+$paramValues[] = $offset;
+$paramValues[] = $peliculasPorPagina;
+
 if (!empty($paramTypes)) {
-    $stmtPeliculas->bind_param($paramTypes, ...$paramValues);
+    $stmt->bind_param($paramTypes, ...$paramValues);
 }
 
-$stmtPeliculas->execute();
-$resultPeliculas = $stmtPeliculas->get_result();
+$stmt->execute();
+$result = $stmt->get_result();
 
 $peliculas = [];
-if ($resultPeliculas && $resultPeliculas->num_rows > 0) {
-    while ($row = $resultPeliculas->fetch_assoc()) {
-        // Obtener póster para cada película
-        $queryPoster = "SELECT m.url 
-                        FROM multimedia_pelicula mp 
-                        JOIN multimedia m ON mp.multimedia_id = m.id 
-                        WHERE mp.pelicula_id = ? AND mp.proposito = 'poster'
-                        LIMIT 1";
-        $stmtPoster = $conn->prepare($queryPoster);
-        $stmtPoster->bind_param("i", $row['id']);
-        $stmtPoster->execute();
-        $resultPoster = $stmtPoster->get_result();
-        
-        if ($resultPoster && $resultPoster->num_rows > 0) {
-            $poster = $resultPoster->fetch_assoc();
-            $row['poster_url'] = $poster['url'];
-        } else {
-            $row['poster_url'] = 'assets/img/poster-default.jpg';
-        }
-        
+if ($result && $result->num_rows > 0) {
+    while ($row = $result->fetch_assoc()) {
         // Obtener géneros para cada película
         $queryGeneros = "SELECT g.id, g.nombre
-                      FROM genero_pelicula gp
-                      JOIN generos g ON gp.genero_id = g.id
-                      WHERE gp.pelicula_id = ?";
-                      
+                  FROM genero_pelicula gp
+                  JOIN generos g ON gp.genero_id = g.id
+                  WHERE gp.pelicula_id = ?";
+                  
         $stmtGeneros = $conn->prepare($queryGeneros);
         $stmtGeneros->bind_param("i", $row['id']);
         $stmtGeneros->execute();
@@ -128,6 +207,22 @@ if ($resultPeliculas && $resultPeliculas->num_rows > 0) {
         }
         
         $row['generos'] = $generos;
+        
+        // Obtener valoración promedio
+        $queryValoracion = "SELECT AVG(puntuacion) as promedio, COUNT(*) as total
+                           FROM valoraciones 
+                           WHERE pelicula_id = ?";
+        $stmtValoracion = $conn->prepare($queryValoracion);
+        $stmtValoracion->bind_param("i", $row['id']);
+        $stmtValoracion->execute();
+        $resultValoracion = $stmtValoracion->get_result();
+        $valoracion = $resultValoracion->fetch_assoc();
+        
+        $row['valoracion'] = [
+            'promedio' => $valoracion['promedio'] ? round($valoracion['promedio'], 1) : 0,
+            'total' => $valoracion['total']
+        ];
+        
         $peliculas[] = $row;
     }
 }
@@ -178,12 +273,20 @@ require_once 'includes/header.php';
 
 <div class="row mb-4">
     <div class="col-md-12">
-        <div class="card shadow-sm">
-            <div class="card-header bg-light">
+        <div class="card">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Filtros</h5>
+                <button class="btn btn-sm btn-outline-primary d-md-none" type="button" data-toggle="collapse" data-target="#filtrosCollapse">
+                    <i class="fas fa-filter"></i> Mostrar filtros
+                </button>
             </div>
-            <div class="card-body">
-                <form action="" method="get" class="row">
+            <div class="card-body collapse show" id="filtrosCollapse">
+                <form action="" method="get" class="row" id="formFiltros">
+                    <!-- Mantener valor de página si existe -->
+                    <?php if (isset($_GET['pagina'])): ?>
+                        <input type="hidden" name="pagina" value="1">
+                    <?php endif; ?>
+                    
                     <div class="col-md-3 mb-3">
                         <label for="genero">Género</label>
                         <select class="form-control" id="genero" name="genero">
@@ -233,12 +336,8 @@ require_once 'includes/header.php';
                     </div>
                     
                     <div class="col-md-12 text-center">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-filter"></i> Aplicar filtros
-                        </button>
-                        <a href="cartelera.php" class="btn btn-outline-secondary ml-2">
-                            <i class="fas fa-times"></i> Limpiar filtros
-                        </a>
+                        <button type="submit" class="btn btn-primary">Aplicar filtros</button>
+                        <a href="cartelera.php" class="btn btn-outline-secondary ml-2">Limpiar filtros</a>
                     </div>
                 </form>
             </div>
@@ -246,16 +345,30 @@ require_once 'includes/header.php';
     </div>
 </div>
 
+<!-- Mostrar resultados y contador -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4>Películas en cartelera</h4>
+    </div>
+    <div>
+        <p class="mb-0">Mostrando <?php echo count($peliculas); ?> de <?php echo $totalPeliculas; ?> películas</p>
+    </div>
+</div>
+
 <div class="row">
     <?php if (!empty($peliculas)): ?>
         <?php foreach ($peliculas as $pelicula): ?>
             <div class="col-md-4 col-lg-3 mb-4">
-                <div class="card h-100 shadow-sm film-card">
+                <div class="card h-100">
                     <div class="position-relative">
-                        <img src="<?php echo $pelicula['poster_url']; ?>" 
+                        <img src="<?php echo $pelicula['poster_url'] ?? 'assets/img/poster-default.jpg'; ?>" 
                              class="card-img-top" alt="<?php echo $pelicula['titulo']; ?>">
-                        <?php if ($pelicula['estado'] == 'estreno'): ?>
-                            <span class="badge badge-danger position-absolute" style="top: 10px; right: 10px;">ESTRENO</span>
+                        <?php if ($pelicula['valoracion']['promedio'] > 0): ?>
+                            <div class="position-absolute" style="top: 10px; right: 10px; background-color: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 20px;">
+                                <i class="fas fa-star text-warning"></i> 
+                                <?php echo $pelicula['valoracion']['promedio']; ?>/5
+                                <small>(<?php echo $pelicula['valoracion']['total']; ?>)</small>
+                            </div>
                         <?php endif; ?>
                     </div>
                     <div class="card-body">
@@ -279,16 +392,12 @@ require_once 'includes/header.php';
                         <?php endif; ?>
                         
                         <p class="card-text small">
-                            <strong>Estreno:</strong> <?php echo date('d/m/Y', strtotime($pelicula['fecha_estreno'])); ?>
+                            <strong>Estreno:</strong> <?php echo $peliculaController->formatearFecha($pelicula['fecha_estreno']); ?>
                         </p>
                     </div>
                     <div class="card-footer bg-transparent text-center">
-                        <a href="pelicula.php?id=<?php echo $pelicula['id']; ?>" class="btn btn-sm btn-primary">
-                            <i class="fas fa-info-circle"></i> Ver detalles
-                        </a>
-                        <a href="reserva.php?pelicula=<?php echo $pelicula['id']; ?>" class="btn btn-sm btn-success">
-                            <i class="fas fa-ticket-alt"></i> Reservar
-                        </a>
+                        <a href="pelicula.php?id=<?php echo $pelicula['id']; ?>" class="btn btn-sm btn-primary">Ver detalles</a>
+                        <a href="reserva.php?pelicula=<?php echo $pelicula['id']; ?>" class="btn btn-sm btn-success">Reservar</a>
                     </div>
                 </div>
             </div>
@@ -296,26 +405,88 @@ require_once 'includes/header.php';
     <?php else: ?>
         <div class="col-12">
             <div class="alert alert-info">
-                <i class="fas fa-info-circle"></i> No se encontraron películas con los filtros seleccionados.
+                No se encontraron películas con los filtros seleccionados.
             </div>
         </div>
     <?php endif; ?>
 </div>
 
-<!-- Paginación (para implementación futura) -->
-<nav aria-label="Paginación de cartelera" class="mt-4">
-    <ul class="pagination justify-content-center">
-        <li class="page-item disabled">
-            <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Anterior</a>
-        </li>
-        <li class="page-item active"><a class="page-link" href="#">1</a></li>
-        <li class="page-item"><a class="page-link" href="#">2</a></li>
-        <li class="page-item"><a class="page-link" href="#">3</a></li>
-        <li class="page-item">
-            <a class="page-link" href="#">Siguiente</a>
-        </li>
-    </ul>
-</nav>
+<!-- Paginación mejorada -->
+<?php if ($totalPaginas > 1): ?>
+    <nav aria-label="Paginación de cartelera" class="mt-4">
+        <ul class="pagination justify-content-center">
+            <?php 
+            // Construir query string para mantener filtros
+            $queryParams = [];
+            if ($generoId) $queryParams['genero'] = $generoId;
+            if ($cineId) $queryParams['cine'] = $cineId;
+            if ($formatoId) $queryParams['formato'] = $formatoId;
+            if ($orden) $queryParams['orden'] = $orden;
+            
+            // Función para generar URL con parámetros
+            function generateUrl($page, $params) {
+                $params['pagina'] = $page;
+                return 'cartelera.php?' . http_build_query($params);
+            }
+            ?>
+            
+            <!-- Botón anterior -->
+            <li class="page-item <?php echo ($paginaActual <= 1) ? 'disabled' : ''; ?>">
+                <a class="page-link" href="<?php echo ($paginaActual > 1) ? generateUrl($paginaActual - 1, $queryParams) : '#'; ?>" aria-label="Anterior">
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            </li>
+            
+            <!-- Mostrar páginas -->
+            <?php
+            // Determinar rango de páginas a mostrar
+            $rango = 2; // Mostrar 2 páginas antes y después de la actual
+            $inicio = max(1, $paginaActual - $rango);
+            $fin = min($totalPaginas, $paginaActual + $rango);
+            
+            // Si estamos cerca del inicio, mostrar más páginas al final
+            if ($inicio <= $rango + 1) {
+                $fin = min($totalPaginas, $inicio + $rango * 2);
+            }
+            
+            // Si estamos cerca del final, mostrar más páginas al inicio
+            if ($fin >= $totalPaginas - $rango) {
+                $inicio = max(1, $fin - $rango * 2);
+            }
+            
+            // Primera página
+            if ($inicio > 1) {
+                echo '<li class="page-item"><a class="page-link" href="' . generateUrl(1, $queryParams) . '">1</a></li>';
+                if ($inicio > 2) {
+                    echo '<li class="page-item disabled"><a class="page-link" href="#">...</a></li>';
+                }
+            }
+            
+            // Mostrar enlaces de paginación
+            for ($i = $inicio; $i <= $fin; $i++) {
+                echo '<li class="page-item ' . ($i == $paginaActual ? 'active' : '') . '">';
+                echo '<a class="page-link" href="' . generateUrl($i, $queryParams) . '">' . $i . '</a>';
+                echo '</li>';
+            }
+            
+            // Última página
+            if ($fin < $totalPaginas) {
+                if ($fin < $totalPaginas - 1) {
+                    echo '<li class="page-item disabled"><a class="page-link" href="#">...</a></li>';
+                }
+                echo '<li class="page-item"><a class="page-link" href="' . generateUrl($totalPaginas, $queryParams) . '">' . $totalPaginas . '</a></li>';
+            }
+            ?>
+            
+            <!-- Botón siguiente -->
+            <li class="page-item <?php echo ($paginaActual >= $totalPaginas) ? 'disabled' : ''; ?>">
+                <a class="page-link" href="<?php echo ($paginaActual < $totalPaginas) ? generateUrl($paginaActual + 1, $queryParams) : '#'; ?>" aria-label="Siguiente">
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+<?php endif; ?>
 
 <!-- Script para enviar el formulario al cambiar los filtros -->
 <script>
@@ -324,45 +495,22 @@ document.addEventListener('DOMContentLoaded', function() {
     
     selectElements.forEach(function(select) {
         select.addEventListener('change', function() {
+            // Reiniciar a la página 1 cuando se cambia un filtro
+            const paginaInput = document.querySelector('input[name="pagina"]');
+            if (paginaInput) {
+                paginaInput.value = 1;
+            }
             this.form.submit();
         });
     });
     
-    // Efecto de hover para las tarjetas de películas
-    const filmCards = document.querySelectorAll('.film-card');
-    filmCards.forEach(card => {
-        card.addEventListener('mouseenter', function() {
-            this.classList.add('shadow');
-            this.style.transform = 'translateY(-5px)';
-            this.style.transition = 'transform 0.3s ease, box-shadow 0.3s ease';
-        });
-        
-        card.addEventListener('mouseleave', function() {
-            this.classList.remove('shadow');
-            this.style.transform = 'translateY(0)';
-        });
-    });
+    // Para dispositivos móviles: toggle de filtros
+    const mediaQuery = window.matchMedia('(max-width: 767.98px)');
+    if (mediaQuery.matches) {
+        document.getElementById('filtrosCollapse').classList.remove('show');
+    }
 });
 </script>
-
-<style>
-.film-card {
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-.film-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-}
-.card-img-top {
-    height: 350px;
-    object-fit: cover;
-}
-@media (max-width: 768px) {
-    .card-img-top {
-        height: 250px;
-    }
-}
-</style>
 
 <?php
 // Incluir footer
