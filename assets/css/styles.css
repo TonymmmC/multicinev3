@@ -1,7 +1,7 @@
 /* Estilos generales */
 body {
     font-family: 'Segoe UI', Arial, sans-serif;
-    color: #333;
+    color: black;
     background-color: #f8f9fa;
 }
 
@@ -17,17 +17,17 @@ a:hover {
 
 /* Estilos para la barra de navegación */
 .navbar {
-    background-color: rgba(0,0,0,0.5);
-    position: absolute;
+    background-color: black;
+    position: relative;
     width: 100%;
     z-index: 1000;
-    transition: background-color 0.3s ease;
+    padding: 0.5rem 1rem;
 }
 
 .navbar.scrolled {
-    background-color: #343a40;
     position: fixed;
     top: 0;
+    transition: background-color 0.3s ease;
 }
 
 .navbar-brand img {
@@ -48,38 +48,72 @@ a:hover {
     color: rgba(255,255,255,0.7);
 }
 
-/* Estilos para el banner principal */
+/* Estilos del hero banner */
 .hero-banner {
     height: 80vh;
-    background-size: cover;
-    background-position: center;
     position: relative;
-    display: flex;
-    align-items: center;
-    color: white;
+    overflow: hidden;
+    background-color: #000;
+    margin: 0;
+    padding: 0;
 }
 
-.hero-banner::before {
-    content: '';
+.hero-banner img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    object-position: center;
+    z-index: 1;
+}
+
+.hero-banner .content-wrapper {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.8) 100%);
-}
-
-.hero-content {
-    position: relative;
+    display: flex;
+    align-items: center;
+    background: linear-gradient(90deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0) 100%);
     z-index: 2;
-    padding-top: 70px;
+    padding: 2rem;
 }
 
+.hero-buttons {
+    margin-top: 1.5rem;
+}
+
+/* Contenedor de la imagen del título */
+.title-wrapper {
+    width: 100%;
+    max-width: 500px;
+    margin-bottom: 1.5rem;
+}
+
+/* Estilo para la imagen del título */
 .movie-title-img {
-    font-size: 3.5rem;
-    font-weight: bold;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-    margin-bottom: 1rem;
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Estilo para los iconos de formato */
+.format-icons {
+    color: white;
+    font-size: 1.25rem;
+}
+
+.format-icons i {
+    background-color: rgba(0,0,0,0.5);
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.format-icons i:hover {
+    background-color: rgba(255,255,0,0.3);
+    transform: scale(1.1);
 }
 
 /* Estilo para las tarjetas de películas */
@@ -146,18 +180,50 @@ a:hover {
     background-color: #007bff;
 }
 
-/* Responsive ajustes */
-@media (max-width: 767.98px) {
+/* Cambiar el estilo del botón comprar ahora */
+.hero-buttons .btn-warning {
+    background-color: #FFDD00;
+    border-color: #FFDD00;
+    color: #000;
+    font-weight: bold;
+}
+
+.hero-buttons .btn-warning:hover {
+    background-color: #FFE500;
+    border-color: #FFE500;
+}
+
+.fa-shopping-cart {
+    font-size: 1.3rem;
+}
+
+.cart-count {
+    position: relative;
+    top: -10px;
+    left: -5px;
+    font-size: 0.7rem;
+    padding: 0.25rem 0.4rem;
+}
+
+
+/* Media queries */
+@media (max-width: 768px) {
+    .title-wrapper {
+        width: 100%;
+    }
+    
+    .hero-banner .content-wrapper {
+        background: linear-gradient(90deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.6) 100%);
+    }
+}
+
+@media (max-width: 576px) {
+    .hero-buttons .btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.9rem;
+    }
+
     .hero-banner {
         height: 60vh;
-    }
-    
-    .movie-title-img {
-        font-size: 2.5rem;
-    }
-    
-    .navbar {
-        background-color: #343a40;
-        position: relative;
     }
 }
