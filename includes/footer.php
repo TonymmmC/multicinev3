@@ -1,84 +1,100 @@
-<footer class="footer bg-dark text-white pt-5 pb-3">
+<?php
+require_once __DIR__ . '/footer.php';
+iniciarSesion();
+$conn = require __DIR__ . '/../config/database.php';
+?>
+<footer class="footer-main bg-dark text-white pt-5 pb-3">
     <div class="container">
         <div class="row">
             <div class="col-md-3 mb-4">
-                <h5>Multicine</h5>
-                <p class="text-muted">La mejor experiencia cinematográfica de Bolivia</p>
-                <p class="text-muted">
+                <h5 class="footer-heading">Multicine</h5>
+                <p class="footer-text text-muted">La mejor experiencia cinematográfica de Bolivia</p>
+                <div class="footer-contact text-muted">
                     Av. 16 de Julio #1642, La Paz<br>
                     Teléfono: +591 2 2334455<br>
-                    Email: <a href="mailto:info@multicine.com.bo">info@multicine.com.bo</a>
-                </p>
+                    Email: <a href="mailto:info@multicine.com.bo" class="footer-email">info@multicine.com.bo</a>
+                </div>
             </div>
             
             <div class="col-md-3 mb-4">
-                <h5>Enlaces</h5>
-                <ul class="list-unstyled">
-                    <li><a href="cartelera.php">Cartelera</a></li>
-                    <li><a href="proximamente.php">Próximos estrenos</a></li>
-                    <li><a href="multipass.php">MultiPass</a></li>
-                    <li><a href="promociones.php">Promociones</a></li>
-                    <li><a href="nosotros.php">Sobre Nosotros</a></li>
-                    <li><a href="contacto.php">Contacto</a></li>
+                <h5 class="footer-heading">Enlaces</h5>
+                <ul class="footer-links list-unstyled">
+                    <li><a href="cartelera.php" class="footer-link">Cartelera</a></li>
+                    <li><a href="proximamente.php" class="footer-link">Próximos estrenos</a></li>
+                    <li><a href="multipass.php" class="footer-link">MultiPass</a></li>
+                    <li><a href="promociones.php" class="footer-link">Promociones</a></li>
+                    <li><a href="nosotros.php" class="footer-link">Sobre Nosotros</a></li>
+                    <li><a href="contacto.php" class="footer-link">Contacto</a></li>
                 </ul>
             </div>
             
             <div class="col-md-3 mb-4">
-                <h5>Síguenos</h5>
-                <div class="social-links">
-                    <a href="https://facebook.com/multicine" target="_blank" class="mr-2">
-                        <i class="fab fa-facebook-f fa-2x"></i>
+                <h5 class="footer-heading">Síguenos</h5>
+                <div class="footer-social">
+                    <a href="https://instagram.com/multicine" target="_blank" class="footer-social-icon">
+                        <span class="footer-icon-circle">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                            </svg>
+                        </span>
                     </a>
-                    <a href="https://twitter.com/multicine" target="_blank" class="mr-2">
-                        <i class="fab fa-twitter fa-2x"></i>
+                    <a href="https://facebook.com/multicine" target="_blank" class="footer-social-icon">
+                        <span class="footer-icon-circle">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"/>
+                            </svg>
+                        </span>
                     </a>
-                    <a href="https://instagram.com/multicine" target="_blank" class="mr-2">
-                        <i class="fab fa-instagram fa-2x"></i>
+                    <a href="https://tiktok.com/multicine" target="_blank" class="footer-social-icon">
+                        <span class="footer-icon-circle">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
+                            </svg>
+                        </span>
                     </a>
-                    <a href="https://youtube.com/multicine" target="_blank">
-                        <i class="fab fa-youtube fa-2x"></i>
+                    <a href="https://youtube.com/multicine" target="_blank" class="footer-social-icon">
+                        <span class="footer-icon-circle">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
+                            </svg>
+                        </span>
+                    </a>
+                    <a href="https://twitter.com/multicine" target="_blank" class="footer-social-icon">
+                        <span class="footer-icon-circle">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
+                            </svg>
+                        </span>
                     </a>
                 </div>
                 
-                <h5 class="mt-4">Suscríbete al boletín</h5>
-                <form action="suscribir.php" method="post">
-                    <div class="input-group">
-                        <input type="email" class="form-control" placeholder="Tu email" name="email" required>
-                        <div class="input-group-append">
-                            <button class="btn btn-primary" type="submit">Suscribir</button>
+                <h5 class="footer-heading mt-4">Suscríbete al boletín</h5>
+                <form action="suscribir.php" method="post" class="footer-form">
+                    <div class="footer-input-group">
+                        <input type="email" class="footer-input form-control" placeholder="Tu email" name="email" required>
+                        <div class="footer-input-append">
+                            <button class="footer-btn btn btn-primary" type="submit">Suscribir</button>
                         </div>
                     </div>
                 </form>
             </div>
-            
-            <!--<div class="col-md-3 mb-4">
-                <h5>Descarga nuestra app</h5>
-                <div class="app-badges">
-                    <a href="#" class="d-block mb-2">
-                        <img src="assets/img/google-play.png" alt="Google Play" height="40">
-                    </a>
-                    <a href="#" class="d-block">
-                        <img src="assets/img/app-store.png" alt="App Store" height="40">
-                    </a>
-                </div>
-            </div>-->
         </div>
         
-        <hr class="border-secondary">
+        <hr class="footer-divider border-secondary">
         
         <div class="row">
             <div class="col-md-6">
-                <p class="text-muted mb-0">
+                <p class="footer-copyright text-muted mb-0">
                     &copy; <?php echo date('Y'); ?> Multicine. Todos los derechos reservados.
                 </p>
-                <p class="text-muted small">
+                <p class="footer-dev text-muted small">
                     Desarrollado para Ingeniería de Sistemas - Universidad
                 </p>
             </div>
             <div class="col-md-6 text-md-right">
-                <ul class="list-inline mb-0">
-                    <li class="list-inline-item"><a href="terminos.php">Términos y Condiciones</a></li>
-                    <li class="list-inline-item"><a href="privacidad.php">Política de Privacidad</a></li>
+                <ul class="footer-legal list-inline mb-0">
+                    <li class="list-inline-item"><a href="terminos.php" class="footer-legal-link">Términos y Condiciones</a></li>
+                    <li class="list-inline-item"><a href="privacidad.php" class="footer-legal-link">Política de Privacidad</a></li>
                 </ul>
             </div>
         </div>
@@ -91,3 +107,16 @@
 <script src="assets/js/main.js"></script>
 </body>
 </html>
+
+<?php 
+    // Mensajes del sistema
+    $mensaje = getMensaje();
+    if ($mensaje && basename($_SERVER['PHP_SELF']) != 'index.php'): // No mostrar en página principal 
+    ?>
+    <div class="container mt-3">
+        <div class="alert alert-<?php echo $mensaje['tipo']; ?> alert-dismissible fade show">
+            <?php echo $mensaje['texto']; ?>
+            <button type="button" class="close" data-dismiss="alert">&times;</button>
+        </div>
+    </div>
+    <?php endif; ?>

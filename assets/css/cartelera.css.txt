@@ -1,0 +1,334 @@
+/* 
+ * Estilos para la sección de cartelera de Multicine
+ * Desarrollado para el proyecto de cartelera interactiva
+ */
+
+/* Estilos generales de cartelera */
+.page-cartelera {
+    background-color: #f8f9fa;
+}
+
+.filter-section {
+    background-color: #fff;
+    border-radius: 0.5rem;
+    margin-bottom: 2rem;
+    transition: all 0.3s ease;
+}
+
+.filter-section:hover {
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Estilos para las tarjetas de películas */
+.film-card {
+    border: none;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    height: 100%;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.film-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+}
+
+.film-card .card-img-top {
+    height: 350px;
+    object-fit: cover;
+    transition: all 0.3s ease;
+}
+
+.film-card:hover .card-img-top {
+    filter: brightness(1.1);
+}
+
+.film-card .badge {
+    font-size: 0.75rem;
+    padding: 0.35em 0.65em;
+    margin-right: 0.25rem;
+}
+
+.film-card .card-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.film-card .card-text {
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+}
+
+.film-card .card-footer {
+    background-color: transparent;
+    border-top: none;
+    padding-top: 0;
+}
+
+/* Estilos para la vista de lista */
+.list-view .film-card {
+    display: flex;
+    flex-direction: row;
+    max-height: 200px;
+}
+
+.list-view .film-card .card-img-top {
+    width: 150px;
+    height: 200px;
+    object-fit: cover;
+}
+
+.list-view .film-card .card-body {
+    flex: 1;
+}
+
+.list-view .film-card .card-title {
+    -webkit-line-clamp: 1;
+}
+
+/* Estilos para generos en chips */
+.genre-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.genre-chip {
+    background-color: #f1f1f1;
+    color: #333;
+    border-radius: 20px;
+    padding: 0.35rem 1rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+}
+
+.genre-chip:hover {
+    background-color: #e9ecef;
+    border-color: #ced4da;
+}
+
+.genre-chip.active {
+    background-color: #007bff;
+    color: #fff;
+}
+
+/* Estilos para clasificaciones de películas */
+.clasificacion {
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    line-height: 30px;
+    text-align: center;
+    font-weight: bold;
+    color: #fff;
+    border-radius: 50%;
+}
+
+.clasificacion-todos {
+    background-color: #28a745;
+}
+
+.clasificacion-plus7 {
+    background-color: #17a2b8;
+}
+
+.clasificacion-plus13 {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.clasificacion-plus16 {
+    background-color: #fd7e14;
+}
+
+.clasificacion-plus18 {
+    background-color: #dc3545;
+}
+
+/* Animación para badges de estreno */
+.badge-estreno {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 0.5rem 1rem;
+    background-color: #dc3545;
+    color: #fff;
+    border-radius: 0.25rem;
+    font-weight: bold;
+    z-index: 1;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.badge-estreno.pulse {
+    animation: pulse 1.5s infinite;
+}
+
+/* Estilos para loading */
+.film-card-skeleton {
+    height: 450px;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background-color: #e9ecef;
+    position: relative;
+}
+
+.film-card-skeleton::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0,
+        rgba(255, 255, 255, 0.2) 20%,
+        rgba(255, 255, 255, 0.5) 60%,
+        rgba(255, 255, 255, 0)
+    );
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* Estilos responsivos */
+@media (max-width: 992px) {
+    .film-card .card-img-top {
+        height: 300px;
+    }
+    
+    .list-view .film-card {
+        flex-direction: column;
+        max-height: none;
+    }
+    
+    .list-view .film-card .card-img-top {
+        width: 100%;
+        height: 300px;
+    }
+}
+
+@media (max-width: 768px) {
+    .film-card .card-img-top {
+        height: 250px;
+    }
+    
+    .genre-chips {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 576px) {
+    .filter-section {
+        padding: 1rem;
+    }
+    
+    .genre-chip {
+        padding: 0.25rem 0.75rem;
+        font-size: 0.75rem;
+    }
+}
+
+/* Botones de favoritos */
+.fav-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(255, 255, 255, 0.8);
+    border: none;
+    transition: all 0.3s ease;
+    z-index: 1;
+}
+
+.fav-button:hover {
+    background-color: rgba(255, 255, 255, 1);
+    transform: scale(1.1);
+}
+
+.fav-button .fa-heart {
+    color: #dc3545;
+}
+
+/* Efectos de hover para botones de acción */
+.btn-action {
+    transition: all 0.3s ease;
+    overflow: hidden;
+    position: relative;
+}
+
+.btn-action::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    transform: scale(0);
+    transition: transform 0.5s cubic-bezier(0.5, 1.6, 0.4, 0.7);
+}
+
+.btn-action:hover::before {
+    transform: scale(3);
+}
+
+/* Tema oscuro */
+body.dark-mode .filter-section {
+    background-color: #343a40;
+    border-color: #495057;
+}
+
+body.dark-mode .film-card {
+    background-color: #343a40;
+    color: #f8f9fa;
+}
+
+body.dark-mode .film-card .card-text {
+    color: #adb5bd;
+}
+
+body.dark-mode .genre-chip {
+    background-color: #212529;
+    color: #f8f9fa;
+}
+
+body.dark-mode .genre-chip:hover {
+    background-color: #1d2124;
+    border-color: #495057;
+}
+
+body.dark-mode .film-card-skeleton {
+    background-color: #495057;
+}

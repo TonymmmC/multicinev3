@@ -222,64 +222,67 @@ require_once 'includes/header.php';
     </div>
 </div>
 
+<!-- Incluir CSS de cartelera-home -->
+<link rel="stylesheet" href="assets/css/cartelera-home.css">
+
 <!-- Selector de Cine -->
-<div class="cinema-selector bg-dark py-3">
+<div class="carhome-cinema-selector">
     <div class="container">
-        <div class="row align-items-center">
-            <div class="col-md-3">
-                <h5 class="text-white mb-0">¿Dónde?</h5>
-            </div>
-            <div class="col-md-9">
-                <select class="form-control" id="cineSelectorHome" onchange="cambiarCine(this.value)">
-                    <?php
-                    // Obtener lista de cines
-                    $queryCines = "SELECT id, nombre FROM cines WHERE activo = 1 ORDER BY nombre";
-                    $resultCines = $conn->query($queryCines);
-                    
-                    if ($resultCines && $resultCines->num_rows > 0) {
-                        while ($cine = $resultCines->fetch_assoc()) {
-                            $selected = $cineSeleccionado == $cine['id'] ? 'selected' : '';
-                            echo "<option value='{$cine['id']}' {$selected}>{$cine['nombre']}</option>";
-                        }
-                    } else {
-                        echo "<option value='1'>La Paz</option>";
-                        echo "<option value='2'>El Alto</option>";
-                        echo "<option value='3'>Santa Cruz</option>";
+        <div class="carhome-selector-wrapper">
+            <span class="carhome-donde">¿Dónde?</span>
+            <select class="carhome-form-control" id="cineSelectorHome" onchange="cambiarCine(this.value)">
+                <?php
+                // Obtener lista de cines desde la BD
+                $queryCines = "SELECT id, nombre FROM cines WHERE activo = 1 ORDER BY nombre";
+                $resultCines = $conn->query($queryCines);
+                
+                if ($resultCines && $resultCines->num_rows > 0) {
+                    while ($cine = $resultCines->fetch_assoc()) {
+                        $selected = $cineSeleccionado == $cine['id'] ? 'selected' : '';
+                        echo "<option value='{$cine['id']}' {$selected}>{$cine['nombre']}</option>";
                     }
-                    ?>
-                </select>
-            </div>
+                } else {
+                    echo "<option value='1'>La Paz</option>";
+                    echo "<option value='2'>El Alto</option>";
+                    echo "<option value='3'>Santa Cruz</option>";
+                }
+                ?>
+            </select>
         </div>
     </div>
 </div>
 
 <!-- Sección Cartelera Actual -->
-<section class="movies-section py-5">
+<section class="carhome-section">
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>Ahora en Cartelera en <span id="nombreCineActual"><?php echo $nombreCine; ?></span></h2>
-            <a href="cartelera.php" class="btn btn-outline-primary">Ver todas</a>
+        <div class="carhome-section-header">
+            <h2 class="carhome-section-title">Ahora en Cartelera en <span id="nombreCineActual"><?php echo $nombreCine; ?></span></h2>
+            <a href="cartelera.php" class="carhome-link-ver">Ver todas</a>
         </div>
         
         <?php if (!empty($peliculasCartelera)): ?>
-            <div class="row">
+            <div class="carhome-slider-container">
                 <?php foreach ($peliculasCartelera as $pelicula): ?>
-                    <div class="col-md-2 col-6 mb-4">
-                        <div class="movie-card">
-                            <div class="position-relative">
-                                <img src="<?php echo $pelicula['poster_url'] ?? 'assets/img/poster-default.jpg'; ?>" alt="<?php echo $pelicula['titulo']; ?>" class="img-fluid rounded">
+                    <div class="carhome-movie-card">
+                        <a href="pelicula.php?id=<?php echo $pelicula['id']; ?>" class="carhome-movie-link">
+                            <div class="carhome-poster-container">
+                                <img src="<?php echo $pelicula['poster_url'] ?? 'assets/img/poster-default.jpg'; ?>" alt="<?php echo $pelicula['titulo']; ?>" class="carhome-poster-img">
                                 <?php if ($pelicula['estado'] == 'estreno'): ?>
-                                    <span class="badge badge-danger position-absolute" style="top: 10px; right: 10px;">ESTRENO</span>
+                                    <span class="carhome-badge-estreno">ESTRENO</span>
                                 <?php endif; ?>
                             </div>
-                            <h5 class="mt-2 mb-1"><?php echo $pelicula['titulo']; ?> <span class="badge badge-secondary"><?php echo $pelicula['clasificacion']; ?></span></h5>
-                            <a href="pelicula.php?id=<?php echo $pelicula['id']; ?>" class="btn btn-sm btn-primary btn-block">Ver detalles</a>
-                        </div>
+                            <div class="carhome-movie-info">
+                                <h5 class="carhome-movie-title"><?php echo $pelicula['titulo']; ?></h5>
+                                <?php if (!empty($pelicula['clasificacion'])): ?>
+                                    <span class="carhome-badge-clasificacion"><?php echo $pelicula['clasificacion']; ?></span>
+                                <?php endif; ?>
+                            </div>
+                        </a>
                     </div>
                 <?php endforeach; ?>
             </div>
         <?php else: ?>
-            <div class="alert alert-info">
+            <div class="carhome-empty-message">
                 No hay películas en cartelera en <?php echo $nombreCine; ?> en este momento.
             </div>
         <?php endif; ?>
@@ -287,32 +290,33 @@ require_once 'includes/header.php';
 </section>
 
 <!-- Sección Eventos Especiales -->
-<section class="special-events-section py-5 bg-light">
+<section class="carhome-section">
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>Especiales y Eventos en <span id="nombreCineEventos"><?php echo $nombreCine; ?></span></h2>
-            <a href="eventos.php" class="btn btn-outline-primary">Ver todos</a>
+        <div class="carhome-section-header">
+            <h2 class="carhome-section-title">Especiales y Eventos en <span id="nombreCineEventos"><?php echo $nombreCine; ?></span></h2>
+            <a href="eventos.php" class="carhome-link-ver">Ver todos</a>
         </div>
         
         <?php if (!empty($eventosEspeciales)): ?>
-            <div class="row">
+            <div class="carhome-slider-container">
                 <?php foreach ($eventosEspeciales as $evento): ?>
-                    <div class="col-md-3 col-6 mb-4">
-                        <div class="movie-card">
-                            <div class="position-relative">
-                                <img src="<?php echo $evento['imagen_url'] ?? 'assets/img/evento-default.jpg'; ?>" alt="<?php echo $evento['nombre']; ?>" class="img-fluid rounded">
+                    <div class="carhome-movie-card">
+                        <a href="evento.php?id=<?php echo $evento['id']; ?>" class="carhome-movie-link">
+                            <div class="carhome-poster-container">
+                                <img src="<?php echo $evento['imagen_url'] ?? 'assets/img/evento-default.jpg'; ?>" alt="<?php echo $evento['nombre']; ?>" class="carhome-poster-img">
                                 <?php if (!empty($evento['etiqueta'])): ?>
-                                    <span class="badge badge-warning position-absolute" style="top: 10px; right: 10px;"><?php echo $evento['etiqueta']; ?></span>
+                                    <span class="carhome-badge-evento"><?php echo $evento['etiqueta']; ?></span>
                                 <?php endif; ?>
                             </div>
-                            <h5 class="mt-2 mb-1"><?php echo $evento['nombre']; ?></h5>
-                            <a href="evento.php?id=<?php echo $evento['id']; ?>" class="btn btn-sm btn-primary btn-block">Ver detalles</a>
-                        </div>
+                            <div class="carhome-movie-info">
+                                <h5 class="carhome-movie-title"><?php echo $evento['nombre']; ?></h5>
+                            </div>
+                        </a>
                     </div>
                 <?php endforeach; ?>
             </div>
         <?php else: ?>
-            <div class="alert alert-info">
+            <div class="carhome-empty-message">
                 No hay eventos especiales en <?php echo $nombreCine; ?> en este momento.
             </div>
         <?php endif; ?>
@@ -320,30 +324,29 @@ require_once 'includes/header.php';
 </section>
 
 <!-- Sección Noticias -->
-<section class="news-section py-5">
+<section class="carhome-section">
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>Noticias</h2>
-            <a href="noticias.php" class="text-primary">Mostrar todas las noticias</a>
+        <div class="carhome-section-header">
+            <h2 class="carhome-section-title">Noticias</h2>
+            <a href="noticias.php" class="carhome-link-ver">Mostrar todas las noticias</a>
         </div>
         
         <?php if (!empty($noticiasDestacadas)): ?>
-            <div class="row">
+            <div class="carhome-news-container">
                 <?php foreach ($noticiasDestacadas as $noticia): ?>
-                    <div class="col-md-6 mb-4">
-                        <div class="card h-100">
-                            <img src="<?php echo $noticia['imagen_url']; ?>" class="card-img-top" alt="<?php echo $noticia['titulo']; ?>">
-                            <div class="card-body">
-                                <h5 class="card-title"><?php echo $noticia['titulo']; ?></h5>
-                                <p class="card-text"><?php echo $noticia['resumen']; ?></p>
-                                <a href="<?php echo $noticia['link']; ?>" class="btn btn-primary">Leer más</a>
+                    <div class="carhome-news-card">
+                        <a href="<?php echo $noticia['link']; ?>" class="carhome-news-link">
+                            <img src="<?php echo $noticia['imagen_url']; ?>" class="carhome-news-img" alt="<?php echo $noticia['titulo']; ?>">
+                            <div class="carhome-news-body">
+                                <h5 class="carhome-news-title"><?php echo $noticia['titulo']; ?></h5>
+                                <p class="carhome-news-text"><?php echo $noticia['resumen']; ?></p>
                             </div>
-                        </div>
+                        </a>
                     </div>
                 <?php endforeach; ?>
             </div>
         <?php else: ?>
-            <div class="alert alert-info">
+            <div class="carhome-empty-message">
                 No hay noticias disponibles en este momento.
             </div>
         <?php endif; ?>
@@ -351,30 +354,33 @@ require_once 'includes/header.php';
 </section>
 
 <!-- Sección Próximos Estrenos -->
-<section class="coming-soon-section py-5 bg-light">
+<section class="carhome-section">
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>Próximamente</h2>
-            <a href="proximamente.php" class="btn btn-outline-primary">Ver todos</a>
+        <div class="carhome-section-header">
+            <h2 class="carhome-section-title">Próximamente</h2>
+            <a href="proximamente.php" class="carhome-link-ver">Ver todos</a>
         </div>
         
         <?php if (!empty($peliculasProximas)): ?>
-            <div class="row">
+            <div class="carhome-slider-container">
                 <?php foreach ($peliculasProximas as $pelicula): ?>
-                    <div class="col-md-2 col-6 mb-4">
-                        <div class="movie-card">
-                            <div class="position-relative">
-                                <img src="<?php echo $pelicula['poster_url'] ?? 'assets/img/poster-default.jpg'; ?>" alt="<?php echo $pelicula['titulo']; ?>" class="img-fluid rounded">
-                                <span class="badge badge-warning position-absolute" style="top: 10px; right: 10px;">PRÓXIMAMENTE</span>
-                            </div>
-                            <h5 class="mt-2 mb-1"><?php echo $pelicula['titulo']; ?> <span class="badge badge-secondary"><?php echo $pelicula['clasificacion']; ?></span></h5>
-                            <p class="small text-muted">Estreno: <?php echo date('d/m/Y', strtotime($pelicula['fecha_estreno'])); ?></p>
+                    <div class="carhome-movie-card">
+                        <div class="carhome-poster-container">
+                            <img src="<?php echo $pelicula['poster_url'] ?? 'assets/img/poster-default.jpg'; ?>" alt="<?php echo $pelicula['titulo']; ?>" class="carhome-poster-img">
+                            <span class="carhome-badge-proximamente">PRÓXIMAMENTE</span>
+                        </div>
+                        <div class="carhome-movie-info">
+                            <h5 class="carhome-movie-title"><?php echo $pelicula['titulo']; ?></h5>
+                            <?php if (!empty($pelicula['clasificacion'])): ?>
+                                <span class="carhome-badge-clasificacion"><?php echo $pelicula['clasificacion']; ?></span>
+                            <?php endif; ?>
+                            <p class="carhome-movie-date">Estreno: <?php echo date('d/m/Y', strtotime($pelicula['fecha_estreno'])); ?></p>
                         </div>
                     </div>
                 <?php endforeach; ?>
             </div>
         <?php else: ?>
-            <div class="alert alert-info">
+            <div class="carhome-empty-message">
                 No hay próximos estrenos programados en este momento.
             </div>
         <?php endif; ?>
@@ -382,60 +388,59 @@ require_once 'includes/header.php';
 </section>
 
 <!-- Sección de Ayuda -->
-<section class="help-section py-5">
+<section class="help-section py-5 carhome-preguntas-section">
     <div class="container">
         <div class="row align-items-center">
             <div class="col-md-6">
-                <h2>¿Tienes alguna pregunta?</h2>
-                <p>Visita nuestro servicio de atención al cliente de WhatsApp</p>
-                <a href="https://wa.me/59170000000" class="btn btn-success">
+                <h2 class="carhome-preguntas-title">¿Tienes alguna pregunta?</h2>
+                <p class="carhome-preguntas-text">Visita nuestro servicio de atención al cliente de WhatsApp</p>
+                <a href="https://wa.me/59170000000" class="btn btn-success carhome-whatsapp-btn">
                     <i class="fab fa-whatsapp"></i> Contactar por WhatsApp
                 </a>
             </div>
             <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">Preguntas frecuentes</h5>
+                <div class="card carhome-preguntas-right">
+                    <div class="card-header carhome-faq-header">
+                        <h5 class="mb-0 carhome-faq-title">Preguntas frecuentes</h5>
                     </div>
                     <div class="card-body">
-                        <div class="accordion" id="faqAccordion">
-                            <div class="card">
-                                <div class="card-header" id="headingOne">
+                        <div class="accordion carhome-faq-items" id="faqAccordion">
+                            <div class="card carhome-faq-card">
+                                <div class="card-header carhome-faq-item" id="headingOne">
                                     <h2 class="mb-0">
-                                        <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseOne">
+                                        <button class="btn btn-link carhome-faq-link" type="button" data-toggle="collapse" data-target="#collapseOne">
                                             ¿Cómo compro entradas en línea?
                                         </button>
                                     </h2>
                                 </div>
-                                <div id="collapseOne" class="collapse" aria-labelledby="headingOne" data-parent="#faqAccordion">
-                                    <div class="card-body">
+                                <div id="collapseOne" class="card-collapse" aria-labelledby="headingOne" data-parent="#faqAccordion">
+                                    <div class="card-body carhome-faq-body">
                                         Selecciona la película, función y asientos que deseas, luego procede al pago con tus métodos preferidos.
                                     </div>
                                 </div>
                             </div>
-                            <div class="card">
-                                <div class="card-header" id="headingTwo">
+                            <div class="card carhome-faq-card">
+                                <div class="card-header carhome-faq-item" id="headingTwo">
                                     <h2 class="mb-0">
-                                        <button class="btn btn-link collapsed" type="button" data-toggle="collapse" data-target="#collapseTwo">
+                                        <button class="btn btn-link collapsed carhome-faq-link" type="button" data-toggle="collapse" data-target="#collapseTwo">
                                             ¿Cómo funciona MultiPass?
                                         </button>
                                     </h2>
                                 </div>
                                 <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#faqAccordion">
-                                    <div class="card-body">
+                                    <div class="card-body carhome-faq-body">
                                         MultiPass es nuestra suscripción mensual que te permite obtener entradas gratis y descuentos exclusivos.
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <a href="faq.php" class="btn btn-link mt-3">Ver más preguntas</a>
+                        <a href="faq.php" class="btn btn-link mt-3 carhome-ver-mas">Ver más preguntas</a>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </section>
-
 <!-- Añadir estilos CSS -->
 <style>
 /* Estilos para la barra de navegación transparente sobre el banner */
