@@ -1,0 +1,373 @@
+
+/* Estilos para la nueva cartelera al estilo "Now Playing" */
+body {
+    background-color: #272727;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+.now-playing-container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Estilos del encabezado */
+.now-playing-header {
+    margin-bottom: 40px;
+}
+
+.now-playing-header h1 {
+    font-size: 36px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    color: white;
+}
+
+.cinema-selector-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+/* Selector de cine */
+.cinema-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.cinema-select-btn {
+    background-color: #1f2233;
+    color: white;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.cinema-select-btn i {
+    font-size: 14px;
+    color: #6c7293;
+}
+
+.cinema-dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #1f2233;
+    min-width: 200px;
+    border-radius: 8px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+    z-index: 100;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.cinema-dropdown-content a {
+    color: #ffffff;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+}
+
+.cinema-dropdown-content a:hover {
+    background-color: #2a2f42;
+}
+
+.cinema-dropdown-content a.active {
+    background-color: #ffd51e;
+    color: #212121;
+}
+
+.cinema-dropdown-content.show {
+    display: block;
+}
+
+/* Botones de acción */
+.action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.action-buttons button {
+    background-color: #1f2233;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.action-buttons button i {
+    color: #ffd51e;
+}
+
+.action-buttons button:hover {
+    background-color: #2a2f42;
+}
+
+/* Contenido principal */
+.main-content {
+    display: flex;
+    gap: 30px;
+}
+
+/* Panel de filtros */
+.filters-panel {
+    width: 280px;
+    background-color: #1f2233;
+    border-radius: 10px;
+    padding: 20px;
+    flex-shrink: 0;
+    display: none; /* Por defecto oculto en todos los tamaños de pantalla */
+}
+
+.filters-panel.show-filters {
+    display: block;
+}
+
+.filter-section {
+    margin-bottom: 25px;
+}
+
+.filter-section h3 {
+    font-size: 12px;
+    font-weight: bold;
+    color: #6c7293;
+    margin-bottom: 15px;
+    letter-spacing: 1px;
+}
+
+.filter-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.filter-option {
+    background-color: #2a2f42;
+    color: white;
+    font-size: 13px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-option:hover {
+    background-color: #343b52;
+}
+
+.filter-option.active {
+    background-color: #ffd51e;
+    color: #212121;
+}
+
+.genres-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.filter-actions {
+    margin-top: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.btn-show-results {
+    background-color: #ffd51e;
+    color: #212121;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    text-align: center;
+}
+
+.btn-reset-filters {
+    background-color: transparent;
+    color: white;
+    border: 1px solid #2a2f42;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+}
+
+.btn-show-results:hover {
+    background-color: #e6c01a;
+}
+
+.btn-reset-filters:hover {
+    background-color: #2a2f42;
+}
+
+/* Grid de películas */
+.movies-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 20px;
+    flex: 1;
+}
+
+.movie-card {
+    background-color: transparent;
+    border-radius: 10px;
+    overflow: hidden;
+    transition: transform 0.3s ease;
+}
+
+.movie-card:hover {
+    transform: translateY(-5px);
+}
+
+.movie-card a {
+    text-decoration: none;
+    color: white;
+}
+
+.movie-poster {
+    position: relative;
+    overflow: hidden;
+    border-radius: 10px;
+    aspect-ratio: 2/3;
+}
+
+.movie-poster img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.movie-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: #e74c3c;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 3px 8px;
+    border-radius: 3px;
+}
+
+.movie-badge.new {
+    background-color: #e74c3c;
+}
+
+.movie-badge.three-d {
+    background-color: #2980b9;
+}
+
+.movie-badge.opera {
+    background-color: #9b59b6;
+}
+
+.movie-badge.plus {
+    background-color: #f39c12;
+}
+
+.movie-info {
+    padding: 10px 5px;
+}
+
+.movie-info h3 {
+    font-size: 16px;
+    margin: 0;
+    margin-right: 24px;
+    position: relative;
+    display: inline-block;
+}
+
+.age-rating {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #6c7293;
+    color: white;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    font-size: 12px;
+    position: absolute;
+    right: -24px;
+    top: 0;
+}
+
+.no-results {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 20px;
+    background-color: #1f2233;
+    border-radius: 10px;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+    .main-content {
+        flex-direction: column;
+    }
+    
+    .filters-panel {
+        width: 100%;
+        margin-bottom: 20px;
+    }
+    
+    .genres-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .cinema-selector-wrapper {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .action-buttons {
+        width: 100%;
+        justify-content: flex-end;
+    }
+    
+    .genres-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .movies-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .action-buttons button span {
+        display: none;
+    }
+    
+    .action-buttons button i {
+        margin: 0;
+    }
+    
+    .action-buttons button {
+        flex: 1;
+        justify-content: center;
+    }
+    
+    .movies-grid {
+        grid-template-columns: repeat(1, 1fr);
+    }
+}

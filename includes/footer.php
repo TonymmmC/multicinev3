@@ -87,9 +87,9 @@ $conn = require __DIR__ . '/../config/database.php';
                 <p class="footer-copyright text-muted mb-0">
                     &copy; <?php echo date('Y'); ?> Multicine. Todos los derechos reservados.
                 </p>
-                <p class="footer-dev text-muted small">
+                <!--<p class="footer-dev text-muted small">
                     Desarrollado para Ingeniería de Sistemas - Universidad
-                </p>
+                </p>-->
             </div>
             <div class="col-md-6 text-md-right">
                 <ul class="footer-legal list-inline mb-0">

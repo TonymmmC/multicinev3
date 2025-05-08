@@ -18,11 +18,12 @@ $offset = ($paginaActual - 1) * $peliculasPorPagina;
 $generoId = isset($_GET['genero']) ? intval($_GET['genero']) : null;
 $cineId = isset($_GET['cine']) ? intval($_GET['cine']) : null;
 $formatoId = isset($_GET['formato']) ? intval($_GET['formato']) : null;
+$idiomaId = isset($_GET['idioma']) ? sanitizeInput($_GET['idioma']) : null;
+$tipoSesion = isset($_GET['tipo_sesion']) ? sanitizeInput($_GET['tipo_sesion']) : null;
 $orden = isset($_GET['orden']) ? sanitizeInput($_GET['orden']) : 'estreno';
 
 // Construir la consulta base para contar total de registros
-$queryTotal = "SELECT COUNT(DISTINCT p.id) as total
-          FROM peliculas p";
+$queryTotal = "SELECT COUNT(DISTINCT p.id) as total FROM peliculas p";
 
 // Para el JOIN condicional con géneros
 if ($generoId) {
@@ -43,6 +44,14 @@ if ($formatoId) {
     }
 }
 
+// Para el JOIN condicional con idiomas
+if ($idiomaId) {
+    // Si ya hemos hecho JOIN con funciones, no lo hacemos de nuevo
+    if (!$cineId && !$formatoId) {
+        $queryTotal .= " JOIN funciones f ON p.id = f.pelicula_id";
+    }
+}
+
 // Condiciones WHERE
 $queryTotal .= " WHERE p.estado IN ('estreno', 'regular') AND p.deleted_at IS NULL";
 
@@ -57,6 +66,10 @@ if ($cineId) {
 
 if ($formatoId) {
     $queryTotal .= " AND f.formato_proyeccion_id = ? AND f.fecha_hora > NOW()";
+}
+
+if ($idiomaId) {
+    $queryTotal .= " AND f.idioma_id = ? AND f.fecha_hora > NOW()";
 }
 
 // Preparar y ejecutar la consulta de conteo
@@ -79,6 +92,11 @@ if ($cineId) {
 if ($formatoId) {
     $paramTypes .= 'i';
     $paramValues[] = $formatoId;
+}
+
+if ($idiomaId) {
+    $paramTypes .= 'i';
+    $paramValues[] = $idiomaId;
 }
 
 if (!empty($paramTypes)) {
@@ -120,6 +138,10 @@ if ($formatoId && !$cineId) {
     $query .= " JOIN funciones f ON p.id = f.pelicula_id";
 }
 
+if ($idiomaId && !$cineId && !$formatoId) {
+    $query .= " JOIN funciones f ON p.id = f.pelicula_id";
+}
+
 // Añadir condición para películas en cartelera
 $query .= " WHERE p.estado IN ('estreno', 'regular') AND p.deleted_at IS NULL";
 
@@ -134,6 +156,10 @@ if ($cineId) {
 
 if ($formatoId) {
     $query .= " AND f.formato_proyeccion_id = ? AND f.fecha_hora > NOW()";
+}
+
+if ($idiomaId) {
+    $query .= " AND f.idioma_id = ? AND f.fecha_hora > NOW()";
 }
 
 // Ordenar resultados
@@ -173,6 +199,11 @@ if ($cineId) {
 if ($formatoId) {
     $paramTypes .= 'i';
     $paramValues[] = $formatoId;
+}
+
+if ($idiomaId) {
+    $paramTypes .= 'i';
+    $paramValues[] = $idiomaId;
 }
 
 // Añadir parámetros de paginación
@@ -260,279 +291,226 @@ if ($resultFormatos && $resultFormatos->num_rows > 0) {
     }
 }
 
+// Obtener lista de idiomas para filtros
+$queryIdiomas = "SELECT id, codigo, nombre FROM idiomas ORDER BY nombre";
+$resultIdiomas = $conn->query($queryIdiomas);
+$idiomas = [];
+
+if ($resultIdiomas && $resultIdiomas->num_rows > 0) {
+    while ($row = $resultIdiomas->fetch_assoc()) {
+        $idiomas[] = $row;
+    }
+}
+
 // Incluir header
 require_once 'includes/header.php';
 ?>
 
-<link rel="stylesheet" href="assets/css/cartelera.css">
-
-<!-- Cabecera de cartelera -->
-<div class="carte-header">
-    <div class="container">
-        <h1 class="carte-title">Cartelera</h1>
-        <p class="carte-subtitle">Descubre las películas en cartelera en Multicine</p>
-    </div>
-</div>
-
-<div class="container carte-container">
-    <!-- Sección de filtros -->
-    <div class="carte-filters">
-        <h5 class="mb-3">Filtros</h5>
-        <form action="" method="get" id="formFiltros">
-            <!-- Mantener valor de página si existe -->
-            <?php if (isset($_GET['pagina'])): ?>
-                <input type="hidden" name="pagina" value="1">
-            <?php endif; ?>
+<link rel="stylesheet" href="assets/css/cartelera-dark.css">
+<link rel="stylesheet" href="assets/css/cartelera-home.css">
+<!-- Contenedor principal -->
+<div class="now-playing-container">
+    <!-- Cabecera de Now Playing -->
+    <div class="now-playing-header">
+        <h1>En Cartelar Ahora</h1>
+        
+        <div class="cinema-selector-wrapper">
+            <!-- Selector de cine -->
+            <div class="cinema-dropdown">
+                <button id="cinemaButton" class="cinema-select-btn">
+                    <i class="fas fa-film"></i>
+                    <?php echo isset($_GET['cine']) && isset($cines[$_GET['cine']]) ? 
+                        $cines[$_GET['cine']]['nombre'] : 'Todos los cines'; ?>
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div id="cinemaDropdown" class="cinema-dropdown-content">
+                    <a href="cartelera.php" class="<?php echo !isset($_GET['cine']) ? 'active' : ''; ?>">
+                        Todos los cines
+                    </a>
+                    <?php foreach ($cines as $cine): ?>
+                        <a href="cartelera.php?cine=<?php echo $cine['id']; ?>" 
+                           class="<?php echo isset($_GET['cine']) && $_GET['cine'] == $cine['id'] ? 'active' : ''; ?>">
+                            <?php echo $cine['nombre']; ?>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            </div>
             
-            <div class="carte-filters-row">
-                <div class="carte-filter-group">
-                    <label for="genero" class="carte-filter-label">Género</label>
-                    <select class="carte-filter-select" id="genero" name="genero">
-                        <option value="">Todos los géneros</option>
-                        <?php foreach ($generos as $genero): ?>
-                            <option value="<?php echo $genero['id']; ?>" <?php echo $generoId == $genero['id'] ? 'selected' : ''; ?>>
-                                <?php echo $genero['nombre']; ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+            <!-- Botones de acción -->
+            <div class="action-buttons">
+                <button class="btn-favorite">
+                    <i class="fas fa-heart"></i> <span>My cinema</span>
+                </button>
+                <button class="btn-filters" id="toggleFilters">
+                    <i class="fas fa-sliders-h"></i> <span>Filters</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Contenedor principal de contenido -->
+    <div class="main-content">
+        <!-- Panel de filtros -->
+        <div class="filters-panel" id="filtersPanel">
+            <!-- Idiomas -->
+            <div class="filter-section">
+                <h3>LANGUAGES</h3>
+                <div class="filter-options">
+                    <?php foreach ($idiomas as $idioma): ?>
+                        <a href="cartelera.php?idioma=<?php echo $idioma['id']; ?>" 
+                           class="filter-option <?php echo $idiomaId == $idioma['id'] ? 'active' : ''; ?>">
+                            <?php echo $idioma['codigo']; ?>
+                        </a>
+                    <?php endforeach; ?>
+                    <a href="cartelera.php?idioma=original" 
+                       class="filter-option <?php echo $idiomaId == 'original' ? 'active' : ''; ?>">
+                        ORIGINAL VERSION
+                    </a>
                 </div>
-                
-                <div class="carte-filter-group">
-                    <label for="cine" class="carte-filter-label">Cine</label>
-                    <select class="carte-filter-select" id="cine" name="cine">
-                        <option value="">Todos los cines</option>
-                        <?php foreach ($cines as $cine): ?>
-                            <option value="<?php echo $cine['id']; ?>" <?php echo $cineId == $cine['id'] ? 'selected' : ''; ?>>
-                                <?php echo $cine['nombre']; ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+            </div>
+            
+            <!-- Tipo de sesión -->
+            <div class="filter-section">
+                <h3>TYPE OF SESSION</h3>
+                <div class="filter-options">
+                    <?php foreach ($formatos as $formato): ?>
+                        <a href="cartelera.php?formato=<?php echo $formato['id']; ?>" 
+                           class="filter-option <?php echo $formatoId == $formato['id'] ? 'active' : ''; ?>">
+                            <?php echo strtoupper($formato['nombre']); ?>
+                        </a>
+                    <?php endforeach; ?>
                 </div>
-                
-                <div class="carte-filter-group">
-                    <label for="formato" class="carte-filter-label">Formato</label>
-                    <select class="carte-filter-select" id="formato" name="formato">
-                        <option value="">Todos los formatos</option>
-                        <?php foreach ($formatos as $formato): ?>
-                            <option value="<?php echo $formato['id']; ?>" <?php echo $formatoId == $formato['id'] ? 'selected' : ''; ?>>
-                                <?php echo $formato['nombre']; ?> 
-                                <?php if ($formato['recargo'] > 0): ?>
-                                    (+Bs. <?php echo number_format($formato['recargo'], 2); ?>)
+            </div>
+            
+            <!-- Categorías especiales -->
+            <div class="filter-section">
+                <div class="filter-options">
+                    <a href="cartelera.php?tipo=preview" 
+                       class="filter-option <?php echo $tipoSesion == 'preview' ? 'active' : ''; ?>">
+                        Preview
+                    </a>
+                    <a href="cartelera.php?tipo=event" 
+                       class="filter-option <?php echo $tipoSesion == 'event' ? 'active' : ''; ?>">
+                        Event
+                    </a>
+                    <a href="cartelera.php?tipo=family" 
+                       class="filter-option <?php echo $tipoSesion == 'family' ? 'active' : ''; ?>">
+                        Family
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Géneros -->
+            <div class="filter-section">
+                <h3>GENRES</h3>
+                <div class="filter-options genres-grid">
+                    <?php foreach ($generos as $genero): ?>
+                        <a href="cartelera.php?genero=<?php echo $genero['id']; ?>" 
+                           class="filter-option <?php echo $generoId == $genero['id'] ? 'active' : ''; ?>">
+                            <?php echo $genero['nombre']; ?>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            
+            <!-- Botones de acción para filtros -->
+            <div class="filter-actions">
+                <button id="showResults" class="btn-show-results">
+                    Show <?php echo $totalPeliculas; ?> results
+                </button>
+                <a href="cartelera.php" class="btn-reset-filters">
+                    Reset filters
+                </a>
+            </div>
+        </div>
+        
+        <!-- Grid de películas -->
+        <div class="movies-grid">
+            <?php if (!empty($peliculas)): ?>
+                <?php foreach ($peliculas as $pelicula): ?>
+                    <div class="movie-card">
+                        <a href="pelicula.php?id=<?php echo $pelicula['id']; ?>">
+                            <div class="movie-poster">
+                                <img src="<?php echo $pelicula['poster_url'] ?? 'assets/img/poster-default.jpg'; ?>" 
+                                     alt="<?php echo $pelicula['titulo']; ?>">
+                                
+                                <?php if ($pelicula['estado'] == 'estreno'): ?>
+                                    <span class="movie-badge new">New</span>
                                 <?php endif; ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                
-                <div class="carte-filter-group">
-                    <label for="orden" class="carte-filter-label">Ordenar por</label>
-                    <select class="carte-filter-select" id="orden" name="orden">
-                        <option value="estreno" <?php echo $orden == 'estreno' ? 'selected' : ''; ?>>Fecha de estreno</option>
-                        <option value="titulo" <?php echo $orden == 'titulo' ? 'selected' : ''; ?>>Título</option>
-                        <option value="duracion" <?php echo $orden == 'duracion' ? 'selected' : ''; ?>>Duración</option>
-                    </select>
-                </div>
-            </div>
-            
-            <div class="carte-filters-buttons">
-                <button type="submit" class="carte-btn-apply">Aplicar filtros</button>
-                <a href="cartelera.php" class="carte-btn-clear">Limpiar filtros</a>
-            </div>
-        </form>
-    </div>
-
-    <!-- Mostrar resultados y contador -->
-    <div class="carte-movies-header">
-        <h2 class="carte-movies-title">Películas en cartelera</h2>
-        <span class="carte-movies-count">Mostrando <?php echo count($peliculas); ?> de <?php echo $totalPeliculas; ?> películas</span>
-    </div>
-
-    <!-- Grid de películas -->
-    <?php if (!empty($peliculas)): ?>
-        <div class="carte-movies-grid">
-            <?php foreach ($peliculas as $pelicula): ?>
-                <div class="carte-movie-card">
-                    <div class="position-relative">
-                        <img src="<?php echo $pelicula['poster_url'] ?? 'assets/img/poster-default.jpg'; ?>" 
-                             class="carte-movie-poster" alt="<?php echo $pelicula['titulo']; ?>">
-                        
-                        <?php if ($pelicula['estado'] == 'estreno'): ?>
-                            <div class="badge badge-danger position-absolute" style="top: 10px; right: 10px;">ESTRENO</div>
-                        <?php endif; ?>
-                    </div>
-                    
-                    <div class="carte-movie-info">
-                        <h5 class="carte-movie-title"><?php echo $pelicula['titulo']; ?></h5>
-                        
-                        <?php if (!empty($pelicula['titulo_original']) && $pelicula['titulo_original'] != $pelicula['titulo']): ?>
-                            <p class="carte-movie-original-title"><?php echo $pelicula['titulo_original']; ?></p>
-                        <?php endif; ?>
-                        
-                        <div class="carte-movie-badges">
-                            <?php if ($pelicula['clasificacion']): ?>
-                                <span class="carte-badge carte-badge-rating"><?php echo $pelicula['clasificacion']; ?></span>
-                            <?php endif; ?>
-                            <span class="carte-badge carte-badge-duration"><?php echo $pelicula['duracion_min']; ?> min</span>
-                        </div>
-                        
-                        <?php if (!empty($pelicula['generos'])): ?>
-                            <div class="carte-movie-genres">
-                                <?php foreach ($pelicula['generos'] as $genero): ?>
-                                    <span class="carte-genre-tag"><?php echo $genero['nombre']; ?></span>
-                                <?php endforeach; ?>
                             </div>
-                        <?php endif; ?>
-                        
-                        <?php if ($pelicula['valoracion']['promedio'] > 0): ?>
-                            <div class="carte-rating-stars">
-                                <?php for ($i = 1; $i <= 5; $i++): ?>
-                                    <?php if ($i <= round($pelicula['valoracion']['promedio'])): ?>
-                                        <i class="fas fa-star"></i>
-                                    <?php else: ?>
-                                        <i class="far fa-star"></i>
-                                    <?php endif; ?>
-                                <?php endfor; ?>
-                                <span class="carte-rating-count">(<?php echo $pelicula['valoracion']['total']; ?>)</span>
+                            <div class="movie-info">
+                                <h3><?php echo $pelicula['titulo']; ?></h3>
+                                <?php if ($pelicula['clasificacion']): ?>
+                                    <span class="age-rating"><?php echo $pelicula['clasificacion']; ?></span>
+                                <?php endif; ?>
                             </div>
-                        <?php endif; ?>
-                        
-                        <p class="carte-movie-release">
-                            <strong>Estreno:</strong> <?php echo $peliculaController->formatearFecha($pelicula['fecha_estreno']); ?>
-                        </p>
+                        </a>
                     </div>
-                    
-                    <div class="carte-movie-actions">
-                        <a href="pelicula.php?id=<?php echo $pelicula['id']; ?>" class="carte-btn-details">Ver detalles</a>
-                        <a href="reserva.php?pelicula=<?php echo $pelicula['id']; ?>" class="carte-btn-reserve">Reservar</a>
-                    </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="no-results">
+                    <p>No se encontraron películas con los filtros seleccionados.</p>
                 </div>
-            <?php endforeach; ?>
+            <?php endif; ?>
         </div>
-    <?php else: ?>
-        <div class="carte-no-results">
-            No se encontraron películas con los filtros seleccionados.
-        </div>
-    <?php endif; ?>
-
-    <!-- Paginación mejorada -->
-    <?php if ($totalPaginas > 1): ?>
-        <nav aria-label="Paginación de cartelera">
-            <ul class="pagination carte-pagination">
-                <?php 
-                // Construir query string para mantener filtros
-                $queryParams = [];
-                if ($generoId) $queryParams['genero'] = $generoId;
-                if ($cineId) $queryParams['cine'] = $cineId;
-                if ($formatoId) $queryParams['formato'] = $formatoId;
-                if ($orden) $queryParams['orden'] = $orden;
-                
-                // Función para generar URL con parámetros
-                function generateUrl($page, $params) {
-                    $params['pagina'] = $page;
-                    return 'cartelera.php?' . http_build_query($params);
-                }
-                ?>
-                
-                <!-- Botón anterior -->
-                <li class="page-item <?php echo ($paginaActual <= 1) ? 'disabled' : ''; ?>">
-                    <a class="page-link" href="<?php echo ($paginaActual > 1) ? generateUrl($paginaActual - 1, $queryParams) : '#'; ?>" aria-label="Anterior">
-                        <span aria-hidden="true">&laquo;</span>
-                    </a>
-                </li>
-                
-                <!-- Mostrar páginas -->
-                <?php
-                // Determinar rango de páginas a mostrar
-                $rango = 2; // Mostrar 2 páginas antes y después de la actual
-                $inicio = max(1, $paginaActual - $rango);
-                $fin = min($totalPaginas, $paginaActual + $rango);
-                
-                // Si estamos cerca del inicio, mostrar más páginas al final
-                if ($inicio <= $rango + 1) {
-                    $fin = min($totalPaginas, $inicio + $rango * 2);
-                }
-                
-                // Si estamos cerca del final, mostrar más páginas al inicio
-                if ($fin >= $totalPaginas - $rango) {
-                    $inicio = max(1, $fin - $rango * 2);
-                }
-                
-                // Primera página
-                if ($inicio > 1) {
-                    echo '<li class="page-item"><a class="page-link" href="' . generateUrl(1, $queryParams) . '">1</a></li>';
-                    if ($inicio > 2) {
-                        echo '<li class="page-item disabled"><a class="page-link" href="#">...</a></li>';
-                    }
-                }
-                
-                // Mostrar enlaces de paginación
-                for ($i = $inicio; $i <= $fin; $i++) {
-                    echo '<li class="page-item ' . ($i == $paginaActual ? 'active' : '') . '">';
-                    echo '<a class="page-link" href="' . generateUrl($i, $queryParams) . '">' . $i . '</a>';
-                    echo '</li>';
-                }
-                
-                // Última página
-                if ($fin < $totalPaginas) {
-                    if ($fin < $totalPaginas - 1) {
-                        echo '<li class="page-item disabled"><a class="page-link" href="#">...</a></li>';
-                    }
-                    echo '<li class="page-item"><a class="page-link" href="' . generateUrl($totalPaginas, $queryParams) . '">' . $totalPaginas . '</a></li>';
-                }
-                ?>
-                
-                <!-- Botón siguiente -->
-                <li class="page-item <?php echo ($paginaActual >= $totalPaginas) ? 'disabled' : ''; ?>">
-                    <a class="page-link" href="<?php echo ($paginaActual < $totalPaginas) ? generateUrl($paginaActual + 1, $queryParams) : '#'; ?>" aria-label="Siguiente">
-                        <span aria-hidden="true">&raquo;</span>
-                    </a>
-                </li>
-            </ul>
-        </nav>
-    <?php endif; ?>
+    </div>
 </div>
 
-<!-- Script para enviar el formulario al cambiar los filtros -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const selectElements = document.querySelectorAll('#genero, #cine, #formato, #orden');
+    // Toggle para el dropdown de cines
+    const cinemaButton = document.getElementById('cinemaButton');
+    const cinemaDropdown = document.getElementById('cinemaDropdown');
     
-    selectElements.forEach(function(select) {
-        select.addEventListener('change', function() {
-            // Reiniciar a la página 1 cuando se cambia un filtro
-            const paginaInput = document.querySelector('input[name="pagina"]');
-            if (paginaInput) {
-                paginaInput.value = 1;
-            }
-            this.form.submit();
+    if (cinemaButton && cinemaDropdown) {
+        cinemaButton.addEventListener('click', function() {
+            cinemaDropdown.classList.toggle('show');
         });
-    });
-    
-    // Para dispositivos móviles: toggle de filtros
-    const mediaQuery = window.matchMedia('(max-width: 767.98px)');
-    if (mediaQuery.matches) {
-        const filtrosContent = document.querySelector('.carte-filters-row');
-        const filtrosButtons = document.querySelector('.carte-filters-buttons');
         
-        if (filtrosContent) {
-            filtrosContent.style.display = 'none';
-        }
-        
-        const filtrosTitle = document.querySelector('.carte-filters h5');
-        if (filtrosTitle) {
-            filtrosTitle.style.cursor = 'pointer';
-            filtrosTitle.addEventListener('click', function() {
-                if (filtrosContent.style.display === 'none') {
-                    filtrosContent.style.display = 'flex';
-                    filtrosButtons.style.display = 'flex';
-                } else {
-                    filtrosContent.style.display = 'none';
-                    filtrosButtons.style.display = 'none';
+        // Cerrar dropdown al hacer clic fuera
+        window.addEventListener('click', function(event) {
+            if (!event.target.matches('.cinema-select-btn') && 
+                !event.target.closest('.cinema-select-btn')) {
+                if (cinemaDropdown.classList.contains('show')) {
+                    cinemaDropdown.classList.remove('show');
                 }
+            }
+        });
+    }
+    
+    // Toggle para el panel de filtros
+    const toggleFilters = document.getElementById('toggleFilters');
+    const filtersPanel = document.getElementById('filtersPanel');
+    
+    if (toggleFilters && filtersPanel) {
+        toggleFilters.addEventListener('click', function() {
+            filtersPanel.classList.toggle('show-filters');
+        });
+        
+        // Cerrar panel al hacer clic en Show Results
+        const showResults = document.getElementById('showResults');
+        if (showResults) {
+            showResults.addEventListener('click', function() {
+                filtersPanel.classList.remove('show-filters');
+                
+                // Recolectar todos los filtros activos
+                const activeFilters = document.querySelectorAll('.filter-option.active');
+                let queryParams = new URLSearchParams();
+                
+                activeFilters.forEach(filter => {
+                    // Extraer ID y tipo del filtro del href
+                    const url = new URL(filter.href);
+                    const params = new URLSearchParams(url.search);
+                    
+                    // Añadir a nuestros parámetros
+                    for (const [key, value] of params.entries()) {
+                        queryParams.append(key, value);
+                    }
+                });
+                
+                // Redirigir con todos los filtros
+                window.location.href = 'cartelera.php?' + queryParams.toString();
             });
-            
-            // Agregar icono de toggle
-            filtrosTitle.innerHTML += ' <i class="fas fa-chevron-down"></i>';
         }
     }
 });
