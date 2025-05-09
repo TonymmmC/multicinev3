@@ -14,9 +14,19 @@ $paginaActual = isset($_GET['pagina']) ? intval($_GET['pagina']) : 1;
 if ($paginaActual < 1) $paginaActual = 1;
 $offset = ($paginaActual - 1) * $peliculasPorPagina;
 
+// Obtener cine seleccionado - Considerando 0 como "Todos los cines"
+if (isset($_GET['cine'])) {
+    $cineSeleccionado = intval($_GET['cine']);
+    $_SESSION['cine_id'] = $cineSeleccionado; // Guardar en sesión
+} else {
+    $cineSeleccionado = isset($_SESSION['cine_id']) ? $_SESSION['cine_id'] : 1;
+}
+
+// Si cineSeleccionado es 0, mostrar todos los cines (sin filtrar por cine)
+$filtrarPorCine = ($cineSeleccionado != 0);
+
 // Obtener filtros
 $generoId = isset($_GET['genero']) ? intval($_GET['genero']) : null;
-$cineId = isset($_GET['cine']) ? intval($_GET['cine']) : null;
 $formatoId = isset($_GET['formato']) ? intval($_GET['formato']) : null;
 $idiomaId = isset($_GET['idioma']) ? sanitizeInput($_GET['idioma']) : null;
 $tipoSesion = isset($_GET['tipo_sesion']) ? sanitizeInput($_GET['tipo_sesion']) : null;
@@ -31,25 +41,9 @@ if ($generoId) {
 }
 
 // Para el JOIN condicional con cines
-if ($cineId) {
-    $queryTotal .= " JOIN funciones f ON p.id = f.pelicula_id
-                     JOIN salas s ON f.sala_id = s.id";
-}
-
-// Para el JOIN condicional con formatos
-if ($formatoId) {
-    // Si ya hemos hecho JOIN con funciones, no lo hacemos de nuevo
-    if (!$cineId) {
-        $queryTotal .= " JOIN funciones f ON p.id = f.pelicula_id";
-    }
-}
-
-// Para el JOIN condicional con idiomas
-if ($idiomaId) {
-    // Si ya hemos hecho JOIN con funciones, no lo hacemos de nuevo
-    if (!$cineId && !$formatoId) {
-        $queryTotal .= " JOIN funciones f ON p.id = f.pelicula_id";
-    }
+if ($filtrarPorCine) {
+    $queryTotal .= " LEFT JOIN funciones f ON p.id = f.pelicula_id
+                     LEFT JOIN salas s ON f.sala_id = s.id";
 }
 
 // Condiciones WHERE
@@ -60,16 +54,16 @@ if ($generoId) {
     $queryTotal .= " AND gp.genero_id = ?";
 }
 
-if ($cineId) {
-    $queryTotal .= " AND s.cine_id = ? AND f.fecha_hora > NOW()";
+if ($filtrarPorCine) {
+    $queryTotal .= " AND (s.cine_id = ? OR s.cine_id IS NULL)";
 }
 
 if ($formatoId) {
-    $queryTotal .= " AND f.formato_proyeccion_id = ? AND f.fecha_hora > NOW()";
+    $queryTotal .= " AND f.formato_proyeccion_id = ?";
 }
 
 if ($idiomaId) {
-    $queryTotal .= " AND f.idioma_id = ? AND f.fecha_hora > NOW()";
+    $queryTotal .= " AND f.idioma_id = ?";
 }
 
 // Preparar y ejecutar la consulta de conteo
@@ -84,9 +78,9 @@ if ($generoId) {
     $paramValues[] = $generoId;
 }
 
-if ($cineId) {
+if ($filtrarPorCine) {
     $paramTypes .= 'i';
-    $paramValues[] = $cineId;
+    $paramValues[] = $cineSeleccionado;
 }
 
 if ($formatoId) {
@@ -107,6 +101,7 @@ $stmtTotal->execute();
 $resultTotal = $stmtTotal->get_result();
 $rowTotal = $resultTotal->fetch_assoc();
 $totalPeliculas = $rowTotal['total'];
+$stmtTotal->close();
 
 // Calcular número total de páginas
 $totalPaginas = ceil($totalPeliculas / $peliculasPorPagina);
@@ -116,8 +111,8 @@ if ($paginaActual > $totalPaginas && $totalPaginas > 0) {
 }
 
 // Construir la consulta para obtener peliculas de la página actual
-$query = "SELECT DISTINCT p.id, p.titulo, p.titulo_original, p.duracion_min, p.fecha_estreno, p.estado,
-                 c.codigo as clasificacion, c.descripcion as clasificacion_desc,
+$query = "SELECT DISTINCT p.id, p.titulo, p.duracion_min, p.estado, 
+                 c.codigo as clasificacion,
                  m.url as poster_url
           FROM peliculas p
           LEFT JOIN clasificaciones c ON p.clasificacion_id = c.id
@@ -129,17 +124,10 @@ if ($generoId) {
     $query .= " JOIN genero_pelicula gp ON p.id = gp.pelicula_id";
 }
 
-if ($cineId) {
-    $query .= " JOIN funciones f ON p.id = f.pelicula_id
-                JOIN salas s ON f.sala_id = s.id";
-}
-
-if ($formatoId && !$cineId) {
-    $query .= " JOIN funciones f ON p.id = f.pelicula_id";
-}
-
-if ($idiomaId && !$cineId && !$formatoId) {
-    $query .= " JOIN funciones f ON p.id = f.pelicula_id";
+// Incluir salas si se filtra por cine
+if ($filtrarPorCine || $formatoId || $idiomaId) {
+    $query .= " LEFT JOIN funciones f ON p.id = f.pelicula_id
+                LEFT JOIN salas s ON f.sala_id = s.id";
 }
 
 // Añadir condición para películas en cartelera
@@ -150,16 +138,16 @@ if ($generoId) {
     $query .= " AND gp.genero_id = ?";
 }
 
-if ($cineId) {
-    $query .= " AND s.cine_id = ? AND f.fecha_hora > NOW()";
+if ($filtrarPorCine) {
+    $query .= " AND (s.cine_id = ? OR s.cine_id IS NULL)";
 }
 
 if ($formatoId) {
-    $query .= " AND f.formato_proyeccion_id = ? AND f.fecha_hora > NOW()";
+    $query .= " AND f.formato_proyeccion_id = ?";
 }
 
 if ($idiomaId) {
-    $query .= " AND f.idioma_id = ? AND f.fecha_hora > NOW()";
+    $query .= " AND f.idioma_id = ?";
 }
 
 // Ordenar resultados
@@ -191,9 +179,9 @@ if ($generoId) {
     $paramValues[] = $generoId;
 }
 
-if ($cineId) {
+if ($filtrarPorCine) {
     $paramTypes .= 'i';
-    $paramValues[] = $cineId;
+    $paramValues[] = $cineSeleccionado;
 }
 
 if ($formatoId) {
@@ -236,6 +224,7 @@ if ($result && $result->num_rows > 0) {
         while ($genero = $resultGeneros->fetch_assoc()) {
             $generos[] = $genero;
         }
+        $stmtGeneros->close();
         
         $row['generos'] = $generos;
         
@@ -248,6 +237,7 @@ if ($result && $result->num_rows > 0) {
         $stmtValoracion->execute();
         $resultValoracion = $stmtValoracion->get_result();
         $valoracion = $resultValoracion->fetch_assoc();
+        $stmtValoracion->close();
         
         $row['valoracion'] = [
             'promedio' => $valoracion['promedio'] ? round($valoracion['promedio'], 1) : 0,
@@ -257,6 +247,7 @@ if ($result && $result->num_rows > 0) {
         $peliculas[] = $row;
     }
 }
+$stmt->close();
 
 // Obtener lista de géneros para filtros
 $queryGeneros = "SELECT id, nombre FROM generos ORDER BY nombre";
@@ -277,6 +268,17 @@ $cines = [];
 if ($resultCines && $resultCines->num_rows > 0) {
     while ($row = $resultCines->fetch_assoc()) {
         $cines[] = $row;
+    }
+}
+
+// Obtener nombre del cine seleccionado
+$nombreCine = "Todos los cines";
+if ($cineSeleccionado > 0) {
+    foreach ($cines as $cine) {
+        if ($cine['id'] == $cineSeleccionado) {
+            $nombreCine = $cine['nombre'];
+            break;
+        }
     }
 }
 
@@ -312,24 +314,24 @@ require_once 'includes/header.php';
 <div class="now-playing-container">
     <!-- Cabecera de Now Playing -->
     <div class="now-playing-header">
-        <h1>En Cartelar Ahora</h1>
+        <h1>En Cartelera Ahora</h1>
         
         <div class="cinema-selector-wrapper">
             <!-- Selector de cine -->
             <div class="cinema-dropdown">
-                <button id="cinemaButton" class="cinema-select-btn">
+                <button id="cinemaButton" class="cinema-select-btn" data-cine-id="<?php echo $cineSeleccionado; ?>">
                     <i class="fas fa-film"></i>
-                    <?php echo isset($_GET['cine']) && isset($cines[$_GET['cine']]) ? 
-                        $cines[$_GET['cine']]['nombre'] : 'Todos los cines'; ?>
+                    <?php echo $nombreCine; ?>
                     <i class="fas fa-chevron-down"></i>
                 </button>
                 <div id="cinemaDropdown" class="cinema-dropdown-content">
-                    <a href="cartelera.php" class="<?php echo !isset($_GET['cine']) ? 'active' : ''; ?>">
+                    <a href="cartelera.php?cine=0" class="<?php echo $cineSeleccionado == 0 ? 'active' : ''; ?>">
                         Todos los cines
                     </a>
                     <?php foreach ($cines as $cine): ?>
                         <a href="cartelera.php?cine=<?php echo $cine['id']; ?>" 
-                           class="<?php echo isset($_GET['cine']) && $_GET['cine'] == $cine['id'] ? 'active' : ''; ?>">
+                        class="<?php echo $cineSeleccionado == $cine['id'] ? 'active' : ''; ?>"
+                        data-cine-id="<?php echo $cine['id']; ?>">
                             <?php echo $cine['nombre']; ?>
                         </a>
                     <?php endforeach; ?>
@@ -357,12 +359,12 @@ require_once 'includes/header.php';
                 <h3>LANGUAGES</h3>
                 <div class="filter-options">
                     <?php foreach ($idiomas as $idioma): ?>
-                        <a href="cartelera.php?idioma=<?php echo $idioma['id']; ?>" 
+                        <a href="cartelera.php?idioma=<?php echo $idioma['id']; ?><?php echo $cineSeleccionado ? '&cine='.$cineSeleccionado : ''; ?>" 
                            class="filter-option <?php echo $idiomaId == $idioma['id'] ? 'active' : ''; ?>">
                             <?php echo $idioma['codigo']; ?>
                         </a>
                     <?php endforeach; ?>
-                    <a href="cartelera.php?idioma=original" 
+                    <a href="cartelera.php?idioma=original<?php echo $cineSeleccionado ? '&cine='.$cineSeleccionado : ''; ?>" 
                        class="filter-option <?php echo $idiomaId == 'original' ? 'active' : ''; ?>">
                         ORIGINAL VERSION
                     </a>
@@ -374,7 +376,7 @@ require_once 'includes/header.php';
                 <h3>TYPE OF SESSION</h3>
                 <div class="filter-options">
                     <?php foreach ($formatos as $formato): ?>
-                        <a href="cartelera.php?formato=<?php echo $formato['id']; ?>" 
+                        <a href="cartelera.php?formato=<?php echo $formato['id']; ?><?php echo $cineSeleccionado ? '&cine='.$cineSeleccionado : ''; ?>" 
                            class="filter-option <?php echo $formatoId == $formato['id'] ? 'active' : ''; ?>">
                             <?php echo strtoupper($formato['nombre']); ?>
                         </a>
@@ -385,15 +387,15 @@ require_once 'includes/header.php';
             <!-- Categorías especiales -->
             <div class="filter-section">
                 <div class="filter-options">
-                    <a href="cartelera.php?tipo=preview" 
+                    <a href="cartelera.php?tipo=preview<?php echo $cineSeleccionado ? '&cine='.$cineSeleccionado : ''; ?>" 
                        class="filter-option <?php echo $tipoSesion == 'preview' ? 'active' : ''; ?>">
                         Preview
                     </a>
-                    <a href="cartelera.php?tipo=event" 
+                    <a href="cartelera.php?tipo=event<?php echo $cineSeleccionado ? '&cine='.$cineSeleccionado : ''; ?>" 
                        class="filter-option <?php echo $tipoSesion == 'event' ? 'active' : ''; ?>">
                         Event
                     </a>
-                    <a href="cartelera.php?tipo=family" 
+                    <a href="cartelera.php?tipo=family<?php echo $cineSeleccionado ? '&cine='.$cineSeleccionado : ''; ?>" 
                        class="filter-option <?php echo $tipoSesion == 'family' ? 'active' : ''; ?>">
                         Family
                     </a>
@@ -405,7 +407,7 @@ require_once 'includes/header.php';
                 <h3>GENRES</h3>
                 <div class="filter-options genres-grid">
                     <?php foreach ($generos as $genero): ?>
-                        <a href="cartelera.php?genero=<?php echo $genero['id']; ?>" 
+                        <a href="cartelera.php?genero=<?php echo $genero['id']; ?><?php echo $cineSeleccionado ? '&cine='.$cineSeleccionado : ''; ?>" 
                            class="filter-option <?php echo $generoId == $genero['id'] ? 'active' : ''; ?>">
                             <?php echo $genero['nombre']; ?>
                         </a>
@@ -418,7 +420,7 @@ require_once 'includes/header.php';
                 <button id="showResults" class="btn-show-results">
                     Show <?php echo $totalPeliculas; ?> results
                 </button>
-                <a href="cartelera.php" class="btn-reset-filters">
+                <a href="cartelera.php?cine=<?php echo $cineSeleccionado; ?>" class="btn-reset-filters">
                     Reset filters
                 </a>
             </div>
@@ -497,16 +499,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 const activeFilters = document.querySelectorAll('.filter-option.active');
                 let queryParams = new URLSearchParams();
                 
+                // Añadir los filtros seleccionados
                 activeFilters.forEach(filter => {
-                    // Extraer ID y tipo del filtro del href
                     const url = new URL(filter.href);
                     const params = new URLSearchParams(url.search);
                     
-                    // Añadir a nuestros parámetros
                     for (const [key, value] of params.entries()) {
-                        queryParams.append(key, value);
+                        queryParams.set(key, value); // Usar set en lugar de append para evitar duplicados
                     }
                 });
+                
+                // Asegurarse de mantener el filtro de cine si existe
+                const cinemaButton = document.getElementById('cinemaButton');
+                if (cinemaButton && cinemaButton.getAttribute('data-cine-id')) {
+                    const cineId = cinemaButton.getAttribute('data-cine-id');
+                    if (cineId) {
+                        queryParams.set('cine', cineId);
+                    }
+                }
                 
                 // Redirigir con todos los filtros
                 window.location.href = 'cartelera.php?' + queryParams.toString();
@@ -516,7 +526,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<?php
-// Incluir footer
-require_once 'includes/footer.php';
-?>
+<?php require_once 'includes/footer.php'; ?>

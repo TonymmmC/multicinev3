@@ -36,6 +36,79 @@ if (estaLogueado()) {
     $esFavorita = $resultFav->num_rows > 0;
 }
 
+// Configurar rutas de multimedia locales - probar múltiples rutas
+$possiblePosterPaths = [
+    "assets/img/posters/{$peliculaId}.jpg",
+    "img/posters/{$peliculaId}.jpg"
+];
+$possibleBannerPaths = [
+    "assets/img/banners/{$peliculaId}.jpg",
+    "img/banners/{$peliculaId}.jpg"
+];
+$possibleTrailerPaths = [
+    "assets/videos/trailers/{$peliculaId}.mp4",
+    "videos/trailers/{$peliculaId}.mp4"
+];
+
+// INSERTA EL CÓDIGO DE DEPURACIÓN AQUÍ
+echo '<!-- Debug info:
+Banner paths checked: 
+';
+foreach ($possibleBannerPaths as $path) {
+    echo "$path - " . (file_exists($path) ? "EXISTS" : "NOT FOUND") . "\n";
+}
+echo "\nServer document root: " . $_SERVER['DOCUMENT_ROOT'] . 
+     "\nCurrent script: " . __FILE__ . 
+     "\nWorking directory: " . getcwd() .
+     "\n-->";
+
+// Verificar qué rutas existen
+$localPosterPath = null;
+$localBannerPath = null;
+$localTrailerPath = null;
+
+foreach ($possiblePosterPaths as $path) {
+    if (file_exists($path)) {
+        $localPosterPath = $path;
+        break;
+    }
+}
+
+foreach ($possibleBannerPaths as $path) {
+    if (file_exists($path)) {
+        $localBannerPath = $path;
+        break;
+    }
+}
+
+foreach ($possibleTrailerPaths as $path) {
+    if (file_exists($path)) {
+        $localTrailerPath = $path;
+        break;
+    }
+}
+
+$hasLocalPoster = !is_null($localPosterPath);
+$hasLocalBanner = !is_null($localBannerPath);
+$hasLocalTrailer = !is_null($localTrailerPath);
+
+// Asignar rutas locales si existen, de lo contrario mantener las URLs externas
+if (!isset($pelicula['multimedia'])) {
+    $pelicula['multimedia'] = [];
+}
+
+if (!isset($pelicula['multimedia']['poster'])) {
+    $pelicula['multimedia']['poster'] = ['url' => 'assets/img/poster-default.jpg'];
+} elseif ($hasLocalPoster) {
+    $pelicula['multimedia']['poster']['url'] = $localPosterPath;
+}
+
+if (!isset($pelicula['multimedia']['banner'])) {
+    $pelicula['multimedia']['banner'] = ['url' => 'assets/img/movie-backgrounds/default-movie-bg.jpg'];
+} elseif ($hasLocalBanner) {
+    $pelicula['multimedia']['banner']['url'] = $localBannerPath;
+}
+
 // Obtener valoraciones
 $valoracionesData = [];
 if (isset($pelicula['id'])) {
@@ -95,312 +168,479 @@ if (isset($pelicula['id'])) {
     ];
 }
 
+// Obtener formatos
+$queryFormatos = "SELECT DISTINCT f.nombre FROM formatos f 
+                  JOIN funciones func ON f.id = func.formato_proyeccion_id
+                  WHERE func.pelicula_id = ?";
+$stmtFormatos = $conn->prepare($queryFormatos);
+$stmtFormatos->bind_param("i", $peliculaId);
+$stmtFormatos->execute();
+$resultFormatos = $stmtFormatos->get_result();
+$formatos = [];
+while ($row = $resultFormatos->fetch_assoc()) {
+    $formatos[] = $row['nombre'];
+}
+
+// Obtener cines con funciones
+$queryCines = "SELECT DISTINCT c.id, c.nombre, c.direccion 
+               FROM cines c
+               JOIN salas s ON s.cine_id = c.id
+               JOIN funciones f ON f.sala_id = s.id
+               WHERE f.pelicula_id = ? AND c.activo = 1
+               ORDER BY c.nombre";
+$stmtCines = $conn->prepare($queryCines);
+$stmtCines->bind_param("i", $peliculaId);
+$stmtCines->execute();
+$resultCines = $stmtCines->get_result();
+$cines = [];
+while ($row = $resultCines->fetch_assoc()) {
+    $cines[] = $row;
+}
+
 // Incluir header
 require_once 'includes/header.php';
 ?>
 
-<div class="mb-4">
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="index.php">Inicio</a></li>
-            <li class="breadcrumb-item"><a href="cartelera.php">Cartelera</a></li>
-            <li class="breadcrumb-item active" aria-current="page"><?php echo $pelicula['titulo']; ?></li>
-        </ol>
-    </nav>
+<link href="assets/css/movie-details.css" rel="stylesheet">
+
+<!-- Hero Banner Section -->
+<div class="mc-hero-banner">
+<img src="assets/img/banners/<?php echo $peliculaId; ?>.jpg" onerror="this.src='assets/img/movie-backgrounds/default-movie-bg.jpg'" class="mc-hero-bg" alt="<?php echo $pelicula['titulo']; ?> banner">
+    <div class="mc-hero-overlay"></div>
+    <div class="container mc-movie-content">
+    <img src="<?php echo $pelicula['multimedia']['poster']['url'] ?? 'assets/img/poster-default.jpg'; ?>" class="mc-movie-poster" alt="<?php echo $pelicula['titulo']; ?>">
+        <div class="mc-movie-info">
+            <div class="d-flex mb-2">
+                <?php if (!empty($formatos)): ?>
+                    <?php foreach($formatos as $formato): ?>
+                        <span class="mc-format-tag"><?php echo $formato; ?></span>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <span class="mc-format-tag">2D</span>
+                <?php endif; ?>
+            </div>
+            <h1 class="mc-movie-title"><?php echo $pelicula['titulo']; ?></h1>
+            <div class="mc-movie-meta">
+                <?php if (isset($valoracionesData['valoraciones']) && $valoracionesData['valoraciones']['promedio'] > 0): ?>
+                    <div class="mc-movie-meta-item">
+                        <i class="fas fa-star text-warning"></i> <?php echo $valoracionesData['valoraciones']['promedio']; ?>/5 (<?php echo $valoracionesData['valoraciones']['total']; ?>)
+                    </div>
+                <?php endif; ?>
+                
+                <div class="mc-movie-meta-item">
+                    <i class="far fa-clock"></i> <?php echo $pelicula['duracion_min']; ?> minutos
+                </div>
+                
+                <div class="mc-movie-meta-item">
+                    <?php echo $pelicula['clasificacion'] ?? 'N/A'; ?>
+                </div>
+                
+                <div class="mc-movie-meta-item">
+                    <i class="fas fa-calendar-alt"></i> <?php echo $peliculaController->formatearFecha($pelicula['fecha_estreno']); ?>
+                </div>
+            </div>
+            
+            <?php if (!empty($pelicula['generos'])): ?>
+                <div class="mc-movie-meta mb-3">
+                    <div class="mc-movie-meta-item">
+                        <strong>Géneros:</strong> 
+                        <?php 
+                        $generos = array_map(function($genero) {
+                            return $genero['nombre'];
+                        }, $pelicula['generos']);
+                        echo implode(', ', $generos);
+                        ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+            
+            <?php if (!empty($pelicula['sinopsis'])): ?>
+                <p class="mc-movie-synopsis"><?php echo $pelicula['sinopsis']; ?></p>
+            <?php endif; ?>
+            
+            <div class="mc-action-buttons">
+                <a href="#funciones" class="mc-btn mc-btn-primary">
+                    <i class="fas fa-ticket-alt"></i> Comprar entradas
+                </a>
+                <button class="mc-btn mc-btn-secondary" id="trailerBtn">
+                    <i class="fas fa-play"></i> Ver trailer
+                </button>
+                <?php if (estaLogueado()): ?>
+                    <form action="favoritos.php" method="post" class="d-inline">
+                        <input type="hidden" name="pelicula_id" value="<?php echo $pelicula['id']; ?>">
+                        <?php if ($esFavorita): ?>
+                            <input type="hidden" name="action" value="quitar">
+                            <button type="submit" class="mc-btn mc-btn-secondary">
+                                <i class="fas fa-heart"></i> Favorito
+                            </button>
+                        <?php else: ?>
+                            <input type="hidden" name="action" value="agregar">
+                            <button type="submit" class="mc-btn mc-btn-secondary">
+                                <i class="far fa-heart"></i> Añadir a favoritos
+                            </button>
+                        <?php endif; ?>
+                    </form>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div class="row mb-5">
-    <!-- Poster y detalles -->
-    <div class="col-md-4">
-        <div class="position-relative mb-3">
-            <img src="<?php echo $pelicula['multimedia']['poster']['url'] ?? 'assets/img/poster-default.jpg'; ?>" 
-                 class="img-fluid rounded" alt="<?php echo $pelicula['titulo']; ?>">
-                 
-            <?php if (isset($valoracionesData['valoraciones']) && $valoracionesData['valoraciones']['promedio'] > 0): ?>
-                <div class="position-absolute" style="top: 10px; right: 10px; background-color: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 20px;">
-                    <i class="fas fa-star text-warning"></i> 
-                    <?php echo $valoracionesData['valoraciones']['promedio']; ?>/5
+<div class="container my-5">
+    <!-- Showtimes section -->
+    <div class="mc-details-section" id="funciones">
+        <h3 class="mc-section-title">Funciones disponibles</h3>
+        
+        <!-- Date selection tabs -->
+        <div class="mc-showtime-tabs">
+            <?php
+            $today = date('Y-m-d');
+            for ($i = 0; $i < 7; $i++) {
+                $date = strtotime("+$i day", strtotime($today));
+                $day = date('D', $date);
+                switch($day) {
+                    case 'Mon': $day = 'Lun'; break;
+                    case 'Tue': $day = 'Mar'; break;
+                    case 'Wed': $day = 'Mié'; break;
+                    case 'Thu': $day = 'Jue'; break;
+                    case 'Fri': $day = 'Vie'; break;
+                    case 'Sat': $day = 'Sáb'; break;
+                    case 'Sun': $day = 'Dom'; break;
+                }
+                $dayNum = date('d', $date);
+                $month = date('M', $date);
+                switch($month) {
+                    case 'Jan': $month = 'Ene'; break;
+                    case 'Apr': $month = 'Abr'; break;
+                    case 'Aug': $month = 'Ago'; break;
+                    case 'Dec': $month = 'Dic'; break;
+                }
+                
+                $activeClass = ($i == 0) ? 'active' : '';
+                echo '<div class="mc-date-tab ' . $activeClass . '" data-date="' . date('Y-m-d', $date) . '">';
+                echo '<span class="mc-date-number">' . $dayNum . '</span>';
+                echo '<span class="mc-date-day">' . $day . '</span>';
+                echo '<span class="mc-date-month">' . $month . '</span>';
+                echo '</div>';
+            }
+            ?>
+        </div>
+        
+        <!-- Filter options -->
+        <div class="d-flex justify-content-end mb-3">
+            <button class="mc-filters-btn">
+                <i class="fas fa-filter"></i> Filtros
+            </button>
+        </div>
+        
+        <!-- Cinema selection with showtimes -->
+        <div class="mc-cinemas-container">
+            <?php if (!empty($cines)): ?>
+                <?php foreach($cines as $cine): ?>
+                    <div class="mc-cinema-card" data-cine-id="<?php echo $cine['id']; ?>">
+                        <div class="mc-cinema-name">
+                            <?php echo $cine['nombre']; ?>
+                            <span class="mc-cinema-badge"><?php echo $cine['direccion']; ?></span>
+                        </div>
+                        
+                        <div class="mc-showtime-container">
+                            <?php
+                            // Obtener horarios disponibles para hoy
+                            $queryHorarios = "SELECT f.id, f.fecha_hora, f.precio_base, f.asientos_disponibles, 
+                                              s.nombre as sala_nombre, i.nombre as idioma, fmt.nombre as formato 
+                                              FROM funciones f 
+                                              JOIN salas s ON f.sala_id = s.id 
+                                              JOIN idiomas i ON f.idioma_id = i.id 
+                                              JOIN formatos fmt ON f.formato_proyeccion_id = fmt.id
+                                              WHERE f.pelicula_id = ? 
+                                              AND s.cine_id = ?
+                                              AND DATE(f.fecha_hora) = CURDATE()
+                                              ORDER BY f.fecha_hora ASC";
+                            $stmtHorarios = $conn->prepare($queryHorarios);
+                            $stmtHorarios->bind_param("ii", $peliculaId, $cine['id']);
+                            $stmtHorarios->execute();
+                            $resultHorarios = $stmtHorarios->get_result();
+                            
+                            if ($resultHorarios->num_rows > 0):
+                                while ($horario = $resultHorarios->fetch_assoc()): 
+                                    $tooltipInfo = "{$horario['formato']} | {$horario['idioma']} | {$horario['sala_nombre']} | Bs. " . number_format($horario['precio_base'], 2);
+                            ?>
+                                <a href="reserva.php?funcion=<?php echo $horario['id']; ?>" 
+                                   class="mc-showtime-btn" 
+                                   data-toggle="tooltip" 
+                                   title="<?php echo $tooltipInfo; ?>">
+                                    <?php echo date('H:i', strtotime($horario['fecha_hora'])); ?>
+                                </a>
+                            <?php 
+                                endwhile;
+                            else:
+                            ?>
+                                <p class="text-muted">No hay funciones disponibles para hoy.</p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="alert alert-info">
+                    No hay funciones disponibles para esta película en este momento.
                 </div>
             <?php endif; ?>
         </div>
-        
-        <div class="card mb-3">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Detalles</h5>
-            </div>
-            <div class="card-body">
-                <p><strong>Clasificación:</strong> 
-                    <span class="badge badge-info"><?php echo $pelicula['clasificacion'] ?? 'N/A'; ?></span>
-                    <?php if (!empty($pelicula['clasificacion_desc'])): ?>
-                        <small class="text-muted d-block"><?php echo $pelicula['clasificacion_desc']; ?></small>
-                    <?php endif; ?>
-                </p>
-                <p><strong>Duración:</strong> <?php echo $pelicula['duracion_min']; ?> minutos</p>
-                <p><strong>Estreno:</strong> <?php echo $peliculaController->formatearFecha($pelicula['fecha_estreno']); ?></p>
-                <?php if (!empty($pelicula['generos'])): ?>
-                    <p><strong>Géneros:</strong><br>
-                        <?php foreach ($pelicula['generos'] as $genero): ?>
-                            <span class="badge badge-secondary"><?php echo $genero['nombre']; ?></span>
-                        <?php endforeach; ?>
-                    </p>
-                <?php endif; ?>
-                
-                <!-- Acciones -->
-                <div class="mt-4">
-                    <?php if (estaLogueado()): ?>
-                        <a href="#valoraciones" class="btn btn-outline-primary btn-block mb-2">
-                            <i class="fas fa-star"></i> Valorar película
-                        </a>
-                        
-                        <form action="favoritos.php" method="post" class="mb-2">
-                            <input type="hidden" name="pelicula_id" value="<?php echo $pelicula['id']; ?>">
-                            <?php if ($esFavorita): ?>
-                                <input type="hidden" name="action" value="quitar">
-                                <button type="submit" class="btn btn-outline-danger btn-block">
-                                    <i class="fas fa-heart"></i> Quitar de favoritos
-                                </button>
-                            <?php else: ?>
-                                <input type="hidden" name="action" value="agregar">
-                                <button type="submit" class="btn btn-outline-danger btn-block">
-                                    <i class="far fa-heart"></i> Añadir a favoritos
-                                </button>
-                            <?php endif; ?>
-                        </form>
-                    <?php else: ?>
-                        <a href="auth/login.php" class="btn btn-outline-primary btn-block mb-2">
-                            <i class="fas fa-user"></i> Inicia sesión para valorar
-                        </a>
-                    <?php endif; ?>
-                    
-                    <button class="btn btn-outline-secondary btn-block" type="button" data-toggle="modal" data-target="#compartirModal">
-                        <i class="fas fa-share-alt"></i> Compartir
-                    </button>
-                </div>
-            </div>
-        </div>
     </div>
     
-    <!-- Información de la película -->
-    <div class="col-md-8">
-        <h1 class="mb-2"><?php echo $pelicula['titulo']; ?></h1>
-        <?php if (!empty($pelicula['titulo_original']) && $pelicula['titulo_original'] != $pelicula['titulo']): ?>
-            <h5 class="text-muted mb-3"><?php echo $pelicula['titulo_original']; ?></h5>
-        <?php endif; ?>
-        
-        <?php if (!empty($pelicula['sinopsis'])): ?>
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h4 class="mb-0">Sinopsis</h4>
+    <!-- Trailer section -->
+    <div class="mc-details-section">
+        <h3 class="mc-section-title">Trailer</h3>
+        <div class="mc-trailer-container">
+            <?php
+            // Obtener thumbnail/poster para el trailer
+            $possibleTrailerThumbnails = [
+                "assets/img/posters/trailer-{$peliculaId}.jpg",
+                "img/posters/trailer-{$peliculaId}.jpg"
+            ];
+            
+            $trailerThumbnail = "assets/img/posters/default-trailer-thumbnail.jpg";
+            foreach($possibleTrailerThumbnails as $path) {
+                if(file_exists($path)) {
+                    $trailerThumbnail = $path;
+                    break;
+                }
+            }
+            
+            if ($hasLocalTrailer): 
+            ?>
+                <div id="localTrailerContainer">
+                    <video id="trailerVideo" controls poster="<?php echo $trailerThumbnail; ?>" class="w-100">
+                        <source src="<?php echo $localTrailerPath; ?>" type="video/mp4">
+                        <p class="text-center">Tu navegador no soporta la reproducción de videos.</p>
+                    </video>
+                    <div class="mc-trailer-play-btn" id="playTrailerBtn">
+                        <i class="fas fa-play"></i>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <p><?php echo $pelicula['sinopsis']; ?></p>
-                </div>
-            </div>
-        <?php endif; ?>
-        
-        <?php if (!empty($pelicula['url_trailer'])): ?>
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h4 class="mb-0">Trailer</h4>
-                </div>
-                <div class="card-body">
+            <?php 
+            elseif (!empty($pelicula['url_trailer'])): 
+                // Si no hay trailer local pero hay URL de YouTube, mostrar thumbnail con botón de play
+                // Extraer ID de YouTube si es posible
+                $youtubePattern = '/^https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/';
+                $youtubeShortPattern = '/^https?:\/\/(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]+)/';
+                $videoId = null;
+                
+                if (preg_match($youtubePattern, $pelicula['url_trailer'], $matches)) {
+                    $videoId = $matches[1];
+                } elseif (preg_match($youtubeShortPattern, $pelicula['url_trailer'], $matches)) {
+                    $videoId = $matches[1];
+                }
+                
+                // Usar un thumbnail local en lugar de uno de YouTube para evitar peticiones
+                $posterUrl = $trailerThumbnail;
+                if ($videoId) {
+                    // Solo guardamos el ID para uso posterior, pero usamos nuestra propia imagen
+                    // Esto evita peticiones a YouTube hasta que el usuario realmente quiera ver el trailer
+            ?>
+                    <div id="youtubeEmbed" data-video-id="<?php echo $videoId; ?>">
+                        <img src="<?php echo $posterUrl; ?>" alt="<?php echo $pelicula['titulo']; ?> trailer poster" class="video-poster">
+                        <div class="mc-trailer-play-btn" id="playLocalBtn" data-trailer-url="<?php echo $pelicula['url_trailer']; ?>">
+                            <i class="fas fa-play"></i>
+                        </div>
+                    </div>
+            <?php
+                } else {
+            ?>
                     <div class="embed-responsive embed-responsive-16by9">
                         <iframe class="embed-responsive-item" src="<?php echo $pelicula['url_trailer']; ?>" allowfullscreen></iframe>
                     </div>
-                </div>
-            </div>
-        <?php endif; ?>
-        
-        <?php if (!empty($pelicula['elenco'])): ?>
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h4 class="mb-0">Elenco</h4>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <?php foreach ($pelicula['elenco'] as $actor): ?>
-                            <div class="col-md-6">
-                                <div class="media mb-3">
-                                    <img src="assets/img/actor-default.jpg" class="mr-3 rounded-circle" width="50" height="50" alt="<?php echo $actor['nombre'] . ' ' . $actor['apellido']; ?>">
-                                    <div class="media-body">
-                                        <h5 class="mt-0 mb-0"><?php echo $actor['nombre'] . ' ' . $actor['apellido']; ?></h5>
-                                        <?php if (!empty($actor['personaje'])): ?>
-                                            <p class="text-muted mb-0"><?php echo $actor['personaje']; ?></p>
-                                        <?php endif; ?>
-                                        <small class="text-muted"><?php echo $actor['rol']; ?></small>
-                                    </div>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
+            <?php 
+                }
+            else: 
+            ?>
+                <div class="mc-empty-trailer">
+                    <img src="<?php echo $trailerThumbnail; ?>" alt="No hay trailer disponible" class="w-100">
+                    <div class="mc-trailer-unavailable">
+                        <i class="fas fa-film"></i>
+                        <p>Trailer no disponible</p>
                     </div>
                 </div>
-            </div>
-        <?php endif; ?>
-        
-        <?php if (!empty($pelicula['funciones'])): ?>
-            <div class="card">
-                <div class="card-header bg-success text-white">
-                    <h4 class="mb-0">Funciones Disponibles</h4>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Fecha y Hora</th>
-                                    <th>Cine</th>
-                                    <th>Sala</th>
-                                    <th>Formato</th>
-                                    <th>Idioma</th>
-                                    <th>Precio</th>
-                                    <th>Asientos</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($pelicula['funciones'] as $funcion): ?>
-                                    <tr>
-                                        <td><?php echo date('d/m/Y H:i', strtotime($funcion['fecha_hora'])); ?></td>
-                                        <td><?php echo $funcion['cine']; ?></td>
-                                        <td><?php echo $funcion['sala']; ?></td>
-                                        <td><?php echo $funcion['formato']; ?></td>
-                                        <td><?php echo $funcion['idioma']; ?></td>
-                                        <td>Bs. <?php echo number_format($funcion['precio_base'], 2); ?></td>
-                                        <td><?php echo $funcion['asientos_disponibles']; ?> libres</td>
-                                        <td>
-                                            <a href="reserva.php?funcion=<?php echo $funcion['id']; ?>" class="btn btn-sm btn-primary">
-                                                Reservar
-                                            </a>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        <?php else: ?>
-            <div class="alert alert-info">
-                No hay funciones disponibles para esta película en este momento.
-            </div>
-        <?php endif; ?>
+            <?php endif; ?>
+        </div>
     </div>
-</div>
-
-<!-- Galería de imágenes -->
-<?php if (!empty($pelicula['multimedia']['galeria'])): ?>
-    <section class="mb-5">
-        <h3 class="mb-3">Galería</h3>
-        <div class="row">
-            <?php foreach ($pelicula['multimedia']['galeria'] as $imagen): ?>
-                <div class="col-md-3 mb-4">
-                    <a href="<?php echo $imagen['url']; ?>" data-lightbox="galeria-pelicula" data-title="<?php echo $pelicula['titulo']; ?>">
-                        <img src="<?php echo $imagen['url']; ?>" class="img-fluid rounded" alt="<?php echo $pelicula['titulo']; ?>">
-                    </a>
+    
+    <!-- Cast section -->
+    <?php if (!empty($pelicula['elenco'])): ?>
+    <div class="mc-details-section">
+        <h3 class="mc-section-title">Elenco y equipo</h3>
+        <div class="mc-cast-container">
+            <?php foreach ($pelicula['elenco'] as $actor): ?>
+                <?php 
+                // Verificar si existe imagen local del actor en varias rutas
+                $possibleActorImages = [
+                    "assets/img/cast/{$actor['id']}.jpg",
+                    "img/cast/{$actor['id']}.jpg"
+                ];
+                
+                $actorImgSrc = 'assets/img/cast/default-actor.jpg';
+                foreach($possibleActorImages as $path) {
+                    if(file_exists($path)) {
+                        $actorImgSrc = $path;
+                        break;
+                    }
+                }
+                
+                if(!file_exists($actorImgSrc) && isset($actor['imagen_url'])) {
+                    $actorImgSrc = $actor['imagen_url'];
+                }
+                ?>
+                <div class="mc-cast-item">
+                    <img src="<?php echo $actorImgSrc; ?>" class="mc-cast-img" alt="<?php echo $actor['nombre'] . ' ' . $actor['apellido']; ?>">
+                    <div class="mc-cast-name"><?php echo $actor['nombre'] . ' ' . $actor['apellido']; ?></div>
+                    <div class="mc-cast-role"><?php echo $actor['personaje'] ?? $actor['rol']; ?></div>
                 </div>
             <?php endforeach; ?>
         </div>
-    </section>
-<?php endif; ?>
-
-<!-- Sección de valoraciones -->
-<div id="valoraciones" class="card mb-4">
-    <div class="card-header">
-        <h4 class="mb-0">Valoraciones y comentarios</h4>
     </div>
-    <div class="card-body">
-        <div class="row mb-4">
-            <div class="col-md-4 text-center">
-                <div class="display-4 font-weight-bold text-primary">
+    <?php endif; ?>
+    
+    <!-- Ratings and reviews section -->
+    <div class="mc-details-section" id="valoraciones">
+        <h3 class="mc-section-title">Valoraciones y comentarios</h3>
+        <div class="row">
+            <div class="col-md-4 text-center mb-4">
+                <div class="mc-rating-score">
                     <?php echo number_format($valoracionesData['valoraciones']['promedio'] ?? 0, 1); ?>
                 </div>
-                <div class="star-rating mb-2">
+                <div class="mc-star-rating mb-2">
                     <?php 
                     $promedio = $valoracionesData['valoraciones']['promedio'] ?? 0;
                     for ($i = 1; $i <= 5; $i++) {
                         if ($i <= $promedio) {
-                            echo '<i class="fas fa-star text-warning"></i>';
+                            echo '<i class="fas fa-star"></i>';
                         } elseif ($i <= $promedio + 0.5) {
-                            echo '<i class="fas fa-star-half-alt text-warning"></i>';
+                            echo '<i class="fas fa-star-half-alt"></i>';
                         } else {
-                            echo '<i class="far fa-star text-warning"></i>';
+                            echo '<i class="far fa-star"></i>';
                         }
                     }
                     ?>
                 </div>
-                <div class="text-muted">
+                <div class="mc-rating-count">
                     <?php echo $valoracionesData['valoraciones']['total'] ?? 0; ?> valoraciones
                 </div>
-            </div>
-            <div class="col-md-8">
-                <h5>Distribución de valoraciones</h5>
-                <?php
-                $distribucion = $valoracionesData['estadisticas'] ?? [];
-                $totalValoraciones = ($valoracionesData['valoraciones']['total'] ?? 0) > 0 ? 
-                                     ($valoracionesData['valoraciones']['total'] ?? 1) : 1;
                 
-                for ($i = 5; $i >= 1; $i--) {
-                    $cantidadEstrellas = $distribucion[$i] ?? 0;
-                    $porcentaje = ($cantidadEstrellas / $totalValoraciones) * 100;
-                    ?>
-                    <div class="d-flex align-items-center mb-1">
-                        <div class="mr-3" style="width: 40px;">
-                            <?php echo $i; ?> <i class="fas fa-star text-warning"></i>
+                <?php if (estaLogueado()): ?>
+                    <button class="mc-btn mc-btn-primary mt-3" data-toggle="modal" data-target="#ratingModal">
+                        <i class="fas fa-star"></i> Valorar película
+                    </button>
+                <?php else: ?>
+                    <a href="auth/login.php" class="mc-btn mc-btn-primary mt-3">
+                        <i class="fas fa-user"></i> Inicia sesión para valorar
+                    </a>
+                <?php endif; ?>
+            </div>
+            
+            <div class="col-md-8">
+                <h5 class="mb-3">Comentarios recientes</h5>
+                
+                <?php if (!empty($valoracionesData['comentarios'])): ?>
+                    <?php foreach ($valoracionesData['comentarios'] as $comentario): ?>
+                        <div class="mc-review-card">
+                            <div class="mc-review-header">
+                                <?php 
+                                // Verificar imagen de perfil local en múltiples rutas
+                                $possibleUserImages = [
+                                    "assets/img/avatars/{$comentario['user_id']}.jpg",
+                                    "img/avatars/{$comentario['user_id']}.jpg"
+                                ];
+                                
+                                $userImgSrc = 'assets/img/avatar-default.jpg';
+                                foreach($possibleUserImages as $path) {
+                                    if(file_exists($path)) {
+                                        $userImgSrc = $path;
+                                        break;
+                                    }
+                                }
+                                
+                                if(!file_exists($userImgSrc) && isset($comentario['imagen_url'])) {
+                                    $userImgSrc = $comentario['imagen_url'];
+                                }
+                                ?>
+                                <img src="<?php echo $userImgSrc; ?>" 
+                                     class="mc-review-avatar" 
+                                     alt="<?php echo $comentario['nombres']; ?>">
+                                <div>
+                                    <h5 class="mc-review-name"><?php echo $comentario['nombres'] . ' ' . $comentario['apellidos']; ?></h5>
+                                    <div class="mc-review-date"><?php echo date('d/m/Y', strtotime($comentario['fecha_valoracion'])); ?></div>
+                                </div>
+                            </div>
+                            <div class="mc-review-rating">
+                                <?php
+                                for ($i = 1; $i <= 5; $i++) {
+                                    if ($i <= $comentario['puntuacion']) {
+                                        echo '<i class="fas fa-star"></i>';
+                                    } else {
+                                        echo '<i class="far fa-star"></i>';
+                                    }
+                                }
+                                ?>
+                            </div>
+                            <p class="mc-review-content"><?php echo $comentario['comentario']; ?></p>
                         </div>
-                        <div class="progress flex-grow-1" style="height: 10px;">
-                            <div class="progress-bar bg-warning" role="progressbar" 
-                                 style="width: <?php echo $porcentaje; ?>%;" 
-                                 aria-valuenow="<?php echo $porcentaje; ?>" 
-                                 aria-valuemin="0" 
-                                 aria-valuemax="100"></div>
-                        </div>
-                        <div class="ml-3" style="width: 40px;">
-                            <?php echo $cantidadEstrellas; ?>
-                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div class="mc-empty-reviews">
+                        <i class="far fa-comments"></i>
+                        <p>No hay comentarios todavía. ¡Sé el primero en valorar esta película!</p>
                     </div>
-                    <?php
-                }
-                ?>
+                <?php endif; ?>
             </div>
         </div>
-        
-        <hr>
-        
-        <!-- Formulario de valoración -->
-        <div class="mb-4">
-            <h5>¿Ya viste esta película? Valórala</h5>
-            <?php if (estaLogueado()): ?>
+    </div>
+</div>
+
+<!-- Modal para valoración -->
+<div class="modal fade" id="ratingModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Valorar "<?php echo $pelicula['titulo']; ?>"</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
                 <?php
                 // Verificar valoración actual del usuario
-                $userId = $_SESSION['user_id'];
-                $query = "SELECT puntuacion, comentario FROM valoraciones 
-                          WHERE user_id = ? AND pelicula_id = ?";
-                $stmt = $conn->prepare($query);
-                $stmt->bind_param("ii", $userId, $pelicula['id']);
-                $stmt->execute();
-                $result = $stmt->get_result();
-                $userRating = null;
-                $userHasRated = false;
-                
-                if ($result && $result->num_rows > 0) {
-                    $userRating = $result->fetch_assoc();
-                    $userHasRated = true;
+                if (estaLogueado()) {
+                    $userId = $_SESSION['user_id'];
+                    $query = "SELECT puntuacion, comentario FROM valoraciones 
+                              WHERE user_id = ? AND pelicula_id = ?";
+                    $stmt = $conn->prepare($query);
+                    $stmt->bind_param("ii", $userId, $pelicula['id']);
+                    $stmt->execute();
+                    $result = $stmt->get_result();
+                    $userRating = null;
+                    $userHasRated = false;
+                    
+                    if ($result && $result->num_rows > 0) {
+                        $userRating = $result->fetch_assoc();
+                        $userHasRated = true;
+                    }
                 }
                 ?>
-                <form action="guardar_valoracion.php" method="post" class="mt-3">
+                <form action="guardar_valoracion.php" method="post">
                     <input type="hidden" name="pelicula_id" value="<?php echo $pelicula['id']; ?>">
                     
                     <div class="form-group">
                         <label>Tu puntuación</label>
-                        <div class="rating-stars">
+                        <div class="mc-rating-input">
                             <?php for ($i = 1; $i <= 5; $i++): ?>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" 
-                                           name="puntuacion" id="rating<?php echo $i; ?>" 
+                                <div class="mc-rating-star">
+                                    <input type="radio" 
+                                           name="puntuacion" 
+                                           id="rating<?php echo $i; ?>" 
                                            value="<?php echo $i; ?>" 
                                            <?php echo ($userHasRated && $userRating['puntuacion'] == $i) ? 'checked' : ''; ?> 
                                            required>
-                                    <label class="form-check-label" for="rating<?php echo $i; ?>">
+                                    <label for="rating<?php echo $i; ?>">
                                         <i class="far fa-star"></i>
                                     </label>
                                 </div>
@@ -413,64 +653,21 @@ require_once 'includes/header.php';
                         <textarea class="form-control" id="comentario" name="comentario" rows="3"><?php echo $userHasRated ? $userRating['comentario'] : ''; ?></textarea>
                     </div>
                     
-                    <button type="submit" class="btn btn-primary">
+                    <button type="submit" class="btn btn-primary btn-block">
                         <?php echo $userHasRated ? 'Actualizar valoración' : 'Enviar valoración'; ?>
                     </button>
                 </form>
-            <?php else: ?>
-                <div class="alert alert-info">
-                    <a href="auth/login.php">Inicia sesión</a> para valorar esta película.
-                </div>
-            <?php endif; ?>
-        </div>
-        
-        <hr>
-        
-        <!-- Lista de comentarios -->
-        <h5 class="mb-3">Comentarios</h5>
-        <?php if (!empty($valoracionesData['comentarios'])): ?>
-            <?php foreach ($valoracionesData['comentarios'] as $comentario): ?>
-                <div class="media mb-4">
-                    <img src="<?php echo $comentario['imagen_url'] ?? 'assets/img/avatar-default.jpg'; ?>" 
-                         class="mr-3 rounded-circle" 
-                         alt="<?php echo $comentario['nombres']; ?>" 
-                         width="50" height="50">
-                    <div class="media-body">
-                        <h5 class="mt-0">
-                            <?php echo $comentario['nombres'] . ' ' . $comentario['apellidos']; ?>
-                            <small class="text-muted ml-2">
-                                <?php echo date('d/m/Y', strtotime($comentario['fecha_valoracion'])); ?>
-                            </small>
-                        </h5>
-                        <div class="mb-2">
-                            <?php
-                            for ($i = 1; $i <= 5; $i++) {
-                                if ($i <= $comentario['puntuacion']) {
-                                    echo '<i class="fas fa-star text-warning"></i>';
-                                } else {
-                                    echo '<i class="far fa-star text-warning"></i>';
-                                }
-                            }
-                            ?>
-                        </div>
-                        <p><?php echo $comentario['comentario']; ?></p>
-                    </div>
-                </div>
-            <?php endforeach; ?>
-        <?php else: ?>
-            <div class="alert alert-light">
-                No hay comentarios todavía. ¡Sé el primero en valorar esta película!
             </div>
-        <?php endif; ?>
+        </div>
     </div>
 </div>
 
 <!-- Modal para compartir -->
-<div class="modal fade" id="compartirModal" tabindex="-1" role="dialog" aria-labelledby="compartirModalLabel" aria-hidden="true">
+<div class="modal fade" id="compartirModal" tabindex="-1" role="dialog">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="compartirModalLabel">Compartir "<?php echo $pelicula['titulo']; ?>"</h5>
+                <h5 class="modal-title">Compartir "<?php echo $pelicula['titulo']; ?>"</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -479,7 +676,7 @@ require_once 'includes/header.php';
                 <p>Comparte esta película en tus redes sociales:</p>
                 
                 <?php
-                $urlActual = "http://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+                $urlActual = "http://{$_SERVER['HTTP_HOST']}{$_SERVER['REQUEST_URI']}";
                 $textoCompartir = '¡Mira "' . $pelicula['titulo'] . '" en Multicine!';
                 ?>
                 
@@ -518,11 +715,159 @@ require_once 'includes/header.php';
     </div>
 </div>
 
-<!-- Incluir Lightbox para la galería de imágenes -->
-<link href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/css/lightbox.min.css" rel="stylesheet" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/js/lightbox.min.js"></script>
-
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Manejo de fechas para funciones
+    const dateTabs = document.querySelectorAll('.mc-date-tab');
+    dateTabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const selectedDate = this.dataset.date;
+            
+            // Actualizar tab activo
+            dateTabs.forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Cargar funciones para la fecha seleccionada
+            loadShowtimes(selectedDate);
+        });
+    });
+    
+    // Función para cargar horarios
+    function loadShowtimes(date) {
+        const cineContainers = document.querySelectorAll('.mc-cinema-card');
+        cineContainers.forEach(cineCard => {
+            const cineId = cineCard.dataset.cineId;
+            const showtimeContainer = cineCard.querySelector('.mc-showtime-container');
+            
+            // Mostrar cargando
+            showtimeContainer.innerHTML = '<p class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</p>';
+            
+            // Hacer petición AJAX para obtener horarios
+            fetch(`api/horarios.php?pelicula_id=<?php echo $peliculaId; ?>&cine_id=${cineId}&fecha=${date}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.length > 0) {
+                    let html = '';
+                    data.forEach(horario => {
+                        const hora = new Date(horario.fecha_hora).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                        const tooltipInfo = `${horario.formato} | ${horario.idioma} | ${horario.sala_nombre} | Bs. ${parseFloat(horario.precio_base).toFixed(2)}`;
+                        html += `<a href="reserva.php?funcion=${horario.id}" class="mc-showtime-btn" data-toggle="tooltip" title="${tooltipInfo}">${hora}</a>`;
+                    });
+                    showtimeContainer.innerHTML = html;
+                    $('[data-toggle="tooltip"]').tooltip();
+                } else {
+                    showtimeContainer.innerHTML = '<p class="text-muted">No hay funciones disponibles para esta fecha.</p>';
+                }
+            })
+            .catch(error => {
+                showtimeContainer.innerHTML = '<p class="text-danger">Error al cargar horarios.</p>';
+                console.error('Error:', error);
+            });
+        });
+    }
+    
+    // Reproducción de trailer
+    const trailerBtn = document.getElementById('trailerBtn');
+    const youtubeEmbed = document.getElementById('youtubeEmbed');
+    const playTrailerBtn = document.getElementById('playTrailerBtn');
+    const playLocalBtn = document.getElementById('playLocalBtn');
+    const trailerVideo = document.getElementById('trailerVideo');
+    
+    if (trailerBtn && youtubeEmbed) {
+        trailerBtn.addEventListener('click', function() {
+            const videoId = youtubeEmbed.dataset.videoId;
+            
+            // Reemplazar la imagen con el iframe
+            youtubeEmbed.innerHTML = `
+                <iframe width="100%" height="100%" 
+                    src="https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0" 
+                    frameborder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowfullscreen>
+                </iframe>
+            `;
+            
+            // Hacer scroll hasta el trailer
+            youtubeEmbed.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+    } else if (trailerBtn && trailerVideo) {
+        trailerBtn.addEventListener('click', function() {
+            trailerVideo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            trailerVideo.play();
+        });
+    }
+    
+    if (trailerBtn && trailerVideo) {
+    trailerBtn.addEventListener('click', function() {
+        trailerVideo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        trailerVideo.play();
+        // Añadir esta línea para ocultar el botón de reproducción
+        if (playTrailerBtn) playTrailerBtn.style.display = 'none';
+    });
+}
+    
+    if (playLocalBtn && youtubeEmbed) {
+        playLocalBtn.addEventListener('click', function() {
+            const videoId = youtubeEmbed.dataset.videoId;
+            
+            // Reemplazar la imagen con el iframe
+            youtubeEmbed.innerHTML = `
+                <iframe width="100%" height="100%" 
+                    src="https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0" 
+                    frameborder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowfullscreen>
+                </iframe>
+            `;
+        });
+    }
+    
+    // Manejo de estrellas para valoración
+    const ratingStars = document.querySelectorAll('.mc-rating-input label');
+    const ratingInputs = document.querySelectorAll('.mc-rating-input input');
+    
+    function updateStars(rating) {
+        ratingStars.forEach((star, index) => {
+            const starIcon = star.querySelector('i');
+            if (index < rating) {
+                starIcon.classList.remove('far');
+                starIcon.classList.add('fas');
+            } else {
+                starIcon.classList.remove('fas');
+                starIcon.classList.add('far');
+            }
+        });
+    }
+    
+    ratingStars.forEach((star, index) => {
+        star.addEventListener('mouseenter', () => {
+            updateStars(index + 1);
+        });
+    });
+    
+    document.querySelector('.mc-rating-input')?.addEventListener('mouseleave', () => {
+        const checkedInput = document.querySelector('.mc-rating-input input:checked');
+        const rating = checkedInput ? parseInt(checkedInput.value) : 0;
+        updateStars(rating);
+    });
+    
+    ratingInputs.forEach((input, index) => {
+        input.addEventListener('change', () => {
+            updateStars(index + 1);
+        });
+    });
+    
+    // Inicializar estrellas si hay valoración previa
+    const checkedInput = document.querySelector('.mc-rating-input input:checked');
+    if (checkedInput) {
+        const initialRating = parseInt(checkedInput.value);
+        updateStars(initialRating);
+    }
+    
+    // Inicializar tooltips
+    $('[data-toggle="tooltip"]').tooltip();
+});
+
 function copiarEnlace() {
     const enlace = document.getElementById('enlaceCompartir');
     enlace.select();
@@ -537,70 +882,6 @@ function copiarEnlace() {
         boton.innerHTML = iconoOriginal;
     }, 2000);
 }
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Interactividad para las estrellas de valoración
-    const ratingLabels = document.querySelectorAll('.rating-stars .form-check-label');
-    const ratingInputs = document.querySelectorAll('.rating-stars input[type="radio"]');
-    
-    // Función para actualizar las estrellas según la valoración
-    function updateStars(rating) {
-        ratingLabels.forEach((label, index) => {
-            const star = label.querySelector('i');
-            if (index < rating) {
-                star.classList.remove('far');
-                star.classList.add('fas');
-            } else {
-                star.classList.remove('fas');
-                star.classList.add('far');
-            }
-        });
-    }
-    
-    // Marcar estrellas al pasar el mouse
-    ratingLabels.forEach((label, index) => {
-        label.addEventListener('mouseenter', () => {
-            updateStars(index + 1);
-        });
-    });
-    
-    // Restaurar valoración seleccionada al quitar el mouse
-    document.querySelector('.rating-stars')?.addEventListener('mouseleave', () => {
-        const checkedInput = document.querySelector('.rating-stars input:checked');
-        const rating = checkedInput ? parseInt(checkedInput.value) : 0;
-        updateStars(rating);
-    });
-    
-    // Actualizar valoración al hacer clic
-    ratingInputs.forEach((input, index) => {
-        input.addEventListener('change', () => {
-            updateStars(index + 1);
-        });
-    });
-    
-    // Inicialización - mostrar valoración actual si existe
-    const checkedInput = document.querySelector('.rating-stars input:checked');
-    if (checkedInput) {
-        const initialRating = parseInt(checkedInput.value);
-        updateStars(initialRating);
-    }
-});
 </script>
 
-<style>
-.rating-stars .form-check-label {
-    cursor: pointer;
-    font-size: 1.5rem;
-    color: #ffc107;
-    padding: 0 5px;
-}
-.rating-stars .form-check-input {
-    position: absolute;
-    opacity: 0;
-}
-</style>
-
-<?php
-// Incluir footer
-require_once 'includes/footer.php';
-?>
+<?php require_once 'includes/footer.php'; ?>

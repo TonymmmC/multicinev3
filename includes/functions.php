@@ -46,3 +46,27 @@ function getMensaje() {
     }
     return null;
 }
+
+/**
+ * Obtiene la URL del póster de una película verificando múltiples rutas posibles
+ * @param int $peliculaId ID de la película
+ * @param string|null $posterUrlDB URL del póster almacenada en la base de datos
+ * @return string URL válida del póster
+ */
+function obtenerPosterUrl($peliculaId, $posterUrlDB = null) {
+    // Rutas posibles para buscar el póster
+    $possiblePosterPaths = [
+        "assets/img/posters/{$peliculaId}.jpg",
+        "img/posters/{$peliculaId}.jpg"
+    ];
+    
+    // Verificar si existe alguna de las rutas locales
+    foreach ($possiblePosterPaths as $path) {
+        if (file_exists($path)) {
+            return $path;
+        }
+    }
+    
+    // Si no se encontró una ruta local, devolver la URL de la BD o la imagen predeterminada
+    return $posterUrlDB ?? 'assets/img/poster-default.jpg';
+}

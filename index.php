@@ -7,35 +7,63 @@ $conn = require 'config/database.php';
 $cineSeleccionado = isset($_GET['cine']) ? intval($_GET['cine']) : 
     (isset($_SESSION['cine_id']) ? $_SESSION['cine_id'] : 1);
 
+// Si el valor es 0 (Todos los cines), establecer a null para consultas
+$cineParaConsulta = ($cineSeleccionado == 0) ? null : $cineSeleccionado;
+
 // Guardar preferencia de cine
 $_SESSION['cine_id'] = $cineSeleccionado;
 
 // Obtener nombre del cine
-$query = "SELECT nombre FROM cines WHERE id = ?";
-$stmt = $conn->prepare($query);
-$stmt->bind_param('i', $cineSeleccionado);
-$stmt->execute();
-$result = $stmt->get_result();
-$nombreCine = ($result && $row = $result->fetch_assoc()) ? $row['nombre'] : 'La Paz';
+$nombreCine = "Todos los cines";
+if ($cineSeleccionado > 0) {
+    $query = "SELECT nombre FROM cines WHERE id = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param('i', $cineSeleccionado);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($result && $row = $result->fetch_assoc()) {
+        $nombreCine = $row['nombre'];
+    }
+    $stmt->close();
+}
 
 // Obtener película destacada
-$query = "SELECT p.id, p.titulo, p.duracion_min, p.fecha_estreno, 
-                 pd.sinopsis, pd.url_trailer, 
+$query = "SELECT p.id, p.titulo, p.duracion_min, p.fecha_estreno, p.estado, 
                  c.codigo as clasificacion,
-                 MAX(CASE WHEN mp.proposito = 'poster' THEN m.url END) as poster_url,
-                 MAX(CASE WHEN mp.proposito = 'banner' THEN m.url END) as banner_url
+                 m.url as poster_url,
+                 MAX(CASE WHEN mp.proposito = 'banner' THEN m2.url END) as banner_url,
+                 pd.sinopsis, pd.url_trailer
           FROM peliculas p
-          LEFT JOIN peliculas_detalle pd ON p.id = pd.pelicula_id
           LEFT JOIN clasificaciones c ON p.clasificacion_id = c.id
-          LEFT JOIN multimedia_pelicula mp ON p.id = mp.pelicula_id
+          LEFT JOIN multimedia_pelicula mp ON p.id = mp.pelicula_id AND mp.proposito = 'poster'
           LEFT JOIN multimedia m ON mp.multimedia_id = m.id
-          WHERE p.estado = 'estreno' AND p.deleted_at IS NULL
-          GROUP BY p.id
-          ORDER BY p.fecha_estreno DESC
-          LIMIT 1";
+          LEFT JOIN multimedia_pelicula mp2 ON p.id = mp2.pelicula_id AND mp2.proposito = 'banner'
+          LEFT JOIN multimedia m2 ON mp2.multimedia_id = m2.id
+          LEFT JOIN peliculas_detalle pd ON p.id = pd.pelicula_id
+          LEFT JOIN funciones f ON p.id = f.pelicula_id
+          LEFT JOIN salas s ON f.sala_id = s.id";
 
-$result = $conn->query($query);
+// Condición para cine específico o todos los cines
+if ($cineParaConsulta !== null) {
+    $query .= " WHERE p.estado IN ('estreno', 'regular') 
+                AND p.deleted_at IS NULL
+                AND (s.cine_id = ? OR s.cine_id IS NULL)";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param('i', $cineParaConsulta);
+} else {
+    $query .= " WHERE p.estado IN ('estreno', 'regular') 
+                AND p.deleted_at IS NULL";
+    $stmt = $conn->prepare($query);
+}
+
+$query .= " GROUP BY p.id
+            ORDER BY p.estado = 'estreno' DESC, p.fecha_estreno DESC
+            LIMIT 1";
+
+$stmt->execute();
+$result = $stmt->get_result();
 $peliculaDestacada = $result->fetch_assoc();
+$stmt->close();
 
 // Si no hay película en estreno, buscar cualquier película en cartelera
 if (!$peliculaDestacada) {
@@ -73,6 +101,7 @@ if ($peliculaDestacada) {
     while ($row = $result->fetch_assoc()) {
         $peliculaDestacada['formatos'][] = strtolower($row['nombre']);
     }
+    $stmt->close();
 }
 
 // Obtener películas en cartelera
@@ -83,18 +112,41 @@ $query = "SELECT p.id, p.titulo, p.duracion_min, p.estado,
           LEFT JOIN clasificaciones c ON p.clasificacion_id = c.id
           LEFT JOIN multimedia_pelicula mp ON p.id = mp.pelicula_id AND mp.proposito = 'poster'
           LEFT JOIN multimedia m ON mp.multimedia_id = m.id
-          JOIN funciones f ON p.id = f.pelicula_id
-          JOIN salas s ON f.sala_id = s.id
+          LEFT JOIN funciones f ON p.id = f.pelicula_id
+          LEFT JOIN salas s ON f.sala_id = s.id
           WHERE p.estado IN ('estreno', 'regular') 
-          AND p.deleted_at IS NULL
-          AND f.fecha_hora > NOW()
-          AND s.cine_id = ?
-          GROUP BY p.id
-          ORDER BY p.estado = 'estreno' DESC, p.fecha_estreno DESC
-          LIMIT 6";
+          AND p.deleted_at IS NULL";
 
-$stmt = $conn->prepare($query);
-$stmt->bind_param('i', $cineSeleccionado);
+$query = "SELECT DISTINCT p.id, p.titulo, p.duracion_min, p.estado, 
+                 c.codigo as clasificacion,
+                 m.url as poster_url
+          FROM peliculas p
+          LEFT JOIN clasificaciones c ON p.clasificacion_id = c.id
+          LEFT JOIN (
+              SELECT pelicula_id, MIN(multimedia_id) as multimedia_id 
+              FROM multimedia_pelicula 
+              WHERE proposito = 'poster' 
+              GROUP BY pelicula_id
+          ) AS mp ON p.id = mp.pelicula_id
+          LEFT JOIN multimedia m ON mp.multimedia_id = m.id
+          LEFT JOIN funciones f ON p.id = f.pelicula_id
+          LEFT JOIN salas s ON f.sala_id = s.id
+          WHERE p.estado IN ('estreno', 'regular') 
+          AND p.deleted_at IS NULL";
+
+// Condición para cine específico o todos los cines
+if ($cineParaConsulta !== null) {
+    $query .= " AND (s.cine_id = ? OR (s.id IS NULL AND f.id IS NULL))";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param('i', $cineParaConsulta);
+} else {
+    $stmt = $conn->prepare($query);
+}
+
+$query .= " GROUP BY p.id, p.titulo, p.duracion_min, p.estado, c.codigo, m.url
+            ORDER BY p.estado = 'estreno' DESC, p.fecha_estreno DESC
+            LIMIT 6";
+
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -102,19 +154,28 @@ $peliculasCartelera = [];
 while ($row = $result->fetch_assoc()) {
     $peliculasCartelera[] = $row;
 }
+$stmt->close();
 
 // Obtener eventos especiales
 $query = "SELECT e.id, e.nombre, e.fecha_inicio, m.url as imagen_url
           FROM eventos_especiales e
-          LEFT JOIN multimedia m ON e.imagen_id = m.id
-          WHERE e.cine_id = ? 
-          AND e.fecha_fin >= NOW()
-          AND e.deleted_at IS NULL
-          ORDER BY e.fecha_inicio ASC
-          LIMIT 4";
+          LEFT JOIN multimedia m ON e.imagen_id = m.id";
 
-$stmt = $conn->prepare($query);
-$stmt->bind_param('i', $cineSeleccionado);
+if ($cineParaConsulta !== null) {
+    $query .= " WHERE e.cine_id = ? 
+                AND e.fecha_fin >= NOW()
+                AND e.deleted_at IS NULL";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param('i', $cineParaConsulta);
+} else {
+    $query .= " WHERE e.fecha_fin >= NOW()
+                AND e.deleted_at IS NULL";
+    $stmt = $conn->prepare($query);
+}
+
+$query .= " ORDER BY e.fecha_inicio ASC
+            LIMIT 4";
+
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -132,6 +193,7 @@ while ($row = $result->fetch_assoc()) {
     
     $eventosEspeciales[] = $row;
 }
+$stmt->close();
 
 // Obtener noticias destacadas
 $query = "SELECT id, titulo, contenido, fecha_publicacion, imagen_id
@@ -156,6 +218,7 @@ while ($row = $result->fetch_assoc()) {
     $row['imagen_url'] = ($resultImg && $imgRow = $resultImg->fetch_assoc()) 
         ? $imgRow['url'] 
         : 'assets/img/noticia-default.jpg';
+    $stmt->close();
     
     // Crear resumen del contenido
     $row['resumen'] = substr(strip_tags($row['contenido']), 0, 150) . '...';
@@ -231,6 +294,7 @@ require_once 'includes/header.php';
         <div class="carhome-selector-wrapper">
             <span class="carhome-donde">¿Dónde?</span>
             <select class="carhome-form-control" id="cineSelectorHome" onchange="cambiarCine(this.value)">
+                <option value="0" <?php echo ($cineSeleccionado == 0) ? 'selected' : ''; ?>>Todos los cines</option>
                 <?php
                 // Obtener lista de cines desde la BD
                 $queryCines = "SELECT id, nombre FROM cines WHERE activo = 1 ORDER BY nombre";
@@ -241,10 +305,6 @@ require_once 'includes/header.php';
                         $selected = $cineSeleccionado == $cine['id'] ? 'selected' : '';
                         echo "<option value='{$cine['id']}' {$selected}>{$cine['nombre']}</option>";
                     }
-                } else {
-                    echo "<option value='1'>La Paz</option>";
-                    echo "<option value='2'>El Alto</option>";
-                    echo "<option value='3'>Santa Cruz</option>";
                 }
                 ?>
             </select>
@@ -257,7 +317,7 @@ require_once 'includes/header.php';
     <div class="container">
         <div class="carhome-section-header">
             <h2 class="carhome-section-title">Ahora en Cartelera en <span id="nombreCineActual"><?php echo $nombreCine; ?></span></h2>
-            <a href="cartelera.php" class="carhome-link-ver">Ver todas</a>
+            <a href="cartelera.php?cine=<?php echo $cineSeleccionado; ?>" class="carhome-link-ver">Ver todas</a>
         </div>
         
         <?php if (!empty($peliculasCartelera)): ?>
@@ -266,7 +326,7 @@ require_once 'includes/header.php';
                     <div class="carhome-movie-card">
                         <a href="pelicula.php?id=<?php echo $pelicula['id']; ?>" class="carhome-movie-link">
                             <div class="carhome-poster-container">
-                                <img src="<?php echo $pelicula['poster_url'] ?? 'assets/img/poster-default.jpg'; ?>" alt="<?php echo $pelicula['titulo']; ?>" class="carhome-poster-img">
+                                <img src="<?php echo obtenerPosterUrl($pelicula['id'], $pelicula['poster_url']); ?>" alt="<?php echo $pelicula['titulo']; ?>" class="carhome-poster-img">
                                 <?php if ($pelicula['estado'] == 'estreno'): ?>
                                     <span class="carhome-badge-estreno">ESTRENO</span>
                                 <?php endif; ?>
@@ -365,17 +425,19 @@ require_once 'includes/header.php';
             <div class="carhome-slider-container">
                 <?php foreach ($peliculasProximas as $pelicula): ?>
                     <div class="carhome-movie-card">
-                        <div class="carhome-poster-container">
-                            <img src="<?php echo $pelicula['poster_url'] ?? 'assets/img/poster-default.jpg'; ?>" alt="<?php echo $pelicula['titulo']; ?>" class="carhome-poster-img">
-                            <span class="carhome-badge-proximamente">PRÓXIMAMENTE</span>
-                        </div>
-                        <div class="carhome-movie-info">
-                            <h5 class="carhome-movie-title"><?php echo $pelicula['titulo']; ?></h5>
-                            <?php if (!empty($pelicula['clasificacion'])): ?>
-                                <span class="carhome-badge-clasificacion"><?php echo $pelicula['clasificacion']; ?></span>
-                            <?php endif; ?>
-                            <p class="carhome-movie-date">Estreno: <?php echo date('d/m/Y', strtotime($pelicula['fecha_estreno'])); ?></p>
-                        </div>
+                        <a href="pelicula.php?id=<?php echo $pelicula['id']; ?>" class="carhome-movie-link">
+                            <div class="carhome-poster-container">
+                                <img src="<?php echo obtenerPosterUrl($pelicula['id'], $pelicula['poster_url']); ?>" alt="<?php echo $pelicula['titulo']; ?>" class="carhome-poster-img">
+                                <span class="carhome-badge-proximamente">PRÓXIMAMENTE</span>
+                            </div>
+                            <div class="carhome-movie-info">
+                                <h5 class="carhome-movie-title"><?php echo $pelicula['titulo']; ?></h5>
+                                <?php if (!empty($pelicula['clasificacion'])): ?>
+                                    <span class="carhome-badge-clasificacion"><?php echo $pelicula['clasificacion']; ?></span>
+                                <?php endif; ?>
+                                <p class="carhome-movie-date">Estreno: <?php echo date('d/m/Y', strtotime($pelicula['fecha_estreno'])); ?></p>
+                            </div>
+                        </a>
                     </div>
                 <?php endforeach; ?>
             </div>
@@ -441,9 +503,8 @@ require_once 'includes/header.php';
         </div>
     </div>
 </section>
-<!-- Añadir estilos CSS -->
+
 <style>
-/* Estilos para la barra de navegación transparente sobre el banner */
 .navbar {
     background-color: rgba(0,0,0,0.5); 
     position: absolute;
@@ -458,7 +519,6 @@ require_once 'includes/header.php';
     transition: background-color 0.3s ease;
 }
 
-/* Estilos para el banner principal */
 .hero-banner {
     height: 80vh;
     background-size: cover;
@@ -491,7 +551,6 @@ require_once 'includes/header.php';
     text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
 }
 
-/* Estilo para las tarjetas de películas */
 .movie-card {
     transition: transform 0.3s ease;
 }
@@ -501,9 +560,7 @@ require_once 'includes/header.php';
 }
 </style>
 
-<!-- Scripts JavaScript -->
 <script>
-// Cambiar estilo de navbar al hacer scroll
 $(window).scroll(function() {
     if ($(this).scrollTop() > 100) {
         $('.navbar').addClass('scrolled');
@@ -512,12 +569,10 @@ $(window).scroll(function() {
     }
 });
 
-// Función para cambiar de cine seleccionado
 function cambiarCine(cineId) {
     window.location.href = 'index.php?cine=' + cineId;
 }
 
-// Función para agregar a favoritos
 function agregarFavorito(peliculaId) {
     <?php if (estaLogueado()): ?>
         $.ajax({
@@ -539,13 +594,9 @@ function agregarFavorito(peliculaId) {
             }
         });
     <?php else: ?>
-        // Redirigir a login si no está logueado
         window.location.href = 'auth/login.php';
     <?php endif; ?>
 }
 </script>
 
-<?php
-// Incluir footer
-require_once 'includes/footer.php';
-?>
+<?php require_once 'includes/footer.php'; ?>
