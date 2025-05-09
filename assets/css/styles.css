@@ -6,12 +6,12 @@ body {
 }
 
 a {
-    color: #007bff;
+    color: black;
     transition: all 0.3s ease;
 }
 
 a:hover {
-    color: #0056b3;
+    color: black;
     text-decoration: none;
 }
 
@@ -177,7 +177,7 @@ a:hover {
 }
 
 .social-links a:hover {
-    background-color: #007bff;
+    background-color: black;
 }
 
 /* Cambiar el estilo del botón comprar ahora */

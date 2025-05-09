@@ -1,7 +1,3 @@
-/*
- * Estilos para la página de detalle de película
- * Desarrollado para el proyecto de cartelera interactiva de Multicine
- */
 
 /* Estilos generales */
 .page-pelicula {
@@ -404,12 +400,12 @@
 }
 
 .btn-trailer {
-    background-color: #007bff;
+    background-color: black;
     color: #fff;
 }
 
 .btn-trailer:hover {
-    background-color: #0069d9;
+    background-color: black;
     box-shadow: 0 5px 15px rgba(0, 123, 255, 0.3);
 }
 
@@ -495,7 +491,7 @@
 .section-nav-link:hover,
 .section-nav-link.active {
     background-color: #f8f9fa;
-    color: #007bff;
+    color: black;
 }
 
 .section-nav-link i {
@@ -570,7 +566,7 @@
     width: 50px;
     height: 50px;
     border: 5px solid #e9ecef;
-    border-top-color: #007bff;
+    border-top-color: black;
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -760,7 +756,7 @@ body.dark-mode .section-nav-link {
 body.dark-mode .section-nav-link:hover,
 body.dark-mode .section-nav-link.active {
     background-color: #212529;
-    color: #007bff;
+    color: black;
 }
 
 body.dark-mode .nav-section {
@@ -773,5 +769,38 @@ body.dark-mode .trailer-preloader {
 
 body.dark-mode .trailer-preloader::after {
     border-color: #495057;
-    border-top-color: #007bff;
+    border-top-color: black;
+}
+
+/* Botón de comprar ahora */
+.modal-footer .btn-primary {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.modal-footer .btn-primary:hover {
+    color: #000 !important; /* Color negro al pasar el mouse */
+    background-color: #218838;
+    border-color: #1e7e34;
+}
+
+/* Mantener el color de "más información" igual que el texto normal */
+.mcc-link-secondary {
+    color: #f8f9fa !important; /* o cualquier color que sea igual al texto normal */
+    text-decoration: none;
+}
+
+.mc-link-secondary:hover {
+    text-decoration: underline;
+}
+
+/* Estilos para el botón de comprar en el modal */
+#bookNowBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#bookNowBtn i {
+    margin-right: 8px;
 }

@@ -50,18 +50,6 @@ $possibleTrailerPaths = [
     "videos/trailers/{$peliculaId}.mp4"
 ];
 
-// INSERTA EL CÓDIGO DE DEPURACIÓN AQUÍ
-echo '<!-- Debug info:
-Banner paths checked: 
-';
-foreach ($possibleBannerPaths as $path) {
-    echo "$path - " . (file_exists($path) ? "EXISTS" : "NOT FOUND") . "\n";
-}
-echo "\nServer document root: " . $_SERVER['DOCUMENT_ROOT'] . 
-     "\nCurrent script: " . __FILE__ . 
-     "\nWorking directory: " . getcwd() .
-     "\n-->";
-
 // Verificar qué rutas existen
 $localPosterPath = null;
 $localBannerPath = null;
@@ -258,6 +246,13 @@ require_once 'includes/header.php';
                 <p class="mc-movie-synopsis"><?php echo $pelicula['sinopsis']; ?></p>
             <?php endif; ?>
             
+            <!-- Nuevo enlace a información, trailers y detalles -->
+            <div class="mb-3">
+                <a href="pelicula-detalle.php?id=<?php echo $pelicula['id']; ?>" class="mcc-link-secondary">
+                    <i class="fas fa-info-circle"></i> Información, trailers y detalles
+                </a>
+            </div>
+            
             <div class="mc-action-buttons">
                 <a href="#funciones" class="mc-btn mc-btn-primary">
                     <i class="fas fa-ticket-alt"></i> Comprar entradas
@@ -365,9 +360,18 @@ require_once 'includes/header.php';
                                 while ($horario = $resultHorarios->fetch_assoc()): 
                                     $tooltipInfo = "{$horario['formato']} | {$horario['idioma']} | {$horario['sala_nombre']} | Bs. " . number_format($horario['precio_base'], 2);
                             ?>
-                                <a href="reserva.php?funcion=<?php echo $horario['id']; ?>" 
+                                <a href="#" 
                                    class="mc-showtime-btn" 
-                                   data-toggle="tooltip" 
+                                   data-toggle="modal" 
+                                   data-target="#showtimeModal"
+                                   data-id="<?php echo $horario['id']; ?>"
+                                   data-time="<?php echo date('H:i', strtotime($horario['fecha_hora'])); ?>"
+                                   data-date="<?php echo date('Y-m-d', strtotime($horario['fecha_hora'])); ?>"
+                                   data-format="<?php echo $horario['formato']; ?>"
+                                   data-sala="<?php echo $horario['sala_nombre']; ?>"
+                                   data-title="<?php echo htmlspecialchars($pelicula['titulo']); ?>"
+                                   data-runtime="<?php echo $pelicula['duracion_min']; ?>"
+                                   data-price="<?php echo number_format($horario['precio_base'], 2); ?>"
                                    title="<?php echo $tooltipInfo; ?>">
                                     <?php echo date('H:i', strtotime($horario['fecha_hora'])); ?>
                                 </a>
@@ -715,6 +719,63 @@ require_once 'includes/header.php';
     </div>
 </div>
 
+<!-- Modal para las funciones -->
+<div class="modal fade" id="showtimeModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <h5 id="modalDate"></h5>
+                    <h3 id="modalTime" class="font-weight-bold"></h3>
+                    <p class="text-muted">Versión Original</p>
+                </div>
+
+                <div class="d-flex">
+                    <div class="mr-3">
+                        <img id="modalPoster" src="" alt="" class="img-fluid" style="max-width: 100px;">
+                    </div>
+                    <div>
+                        <h4 id="modalTitle" class="mb-1"></h4>
+                        <div class="d-flex align-items-center">
+                            <span id="modalRuntime" class="text-muted mr-2"></span>
+                            <span id="modalFormat" class="badge badge-warning"></span>
+                        </div>
+                        <p id="modalExpectedEnd" class="small mt-2">Finaliza aproximadamente a las <span id="endTime"></span></p>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="d-flex align-items-center justify-content-between p-2 bg-light">
+                            <div>
+                                <strong id="modalCinema"></strong><br>
+                                <small>Sala <span id="modalSala"></span></small>
+                                <!-- Añadir la sede -->
+                                <small class="d-block">Sede: <span id="modalSede"></span></small>
+                            </div>
+                            <div class="text-right">
+                                <strong>Precio: Bs. <span id="modalPrice"></span></strong><br>
+                                <small><span id="modalSeats"></span> asientos</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="#" id="bookNowBtn" class="btn btn-primary btn-block">
+                    <!-- Añadir icono de ticket -->
+                    <i class="fas fa-ticket-alt"></i> Comprar ahora
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Manejo de fechas para funciones
@@ -744,24 +805,51 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Hacer petición AJAX para obtener horarios
             fetch(`api/horarios.php?pelicula_id=<?php echo $peliculaId; ?>&cine_id=${cineId}&fecha=${date}`)
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.length > 0) {
                     let html = '';
                     data.forEach(horario => {
                         const hora = new Date(horario.fecha_hora).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
                         const tooltipInfo = `${horario.formato} | ${horario.idioma} | ${horario.sala_nombre} | Bs. ${parseFloat(horario.precio_base).toFixed(2)}`;
-                        html += `<a href="reserva.php?funcion=${horario.id}" class="mc-showtime-btn" data-toggle="tooltip" title="${tooltipInfo}">${hora}</a>`;
+                        
+                        html += `<a href="#" 
+                                class="mc-showtime-btn" 
+                                data-toggle="modal" 
+                                data-target="#showtimeModal"
+                                data-id="${horario.id}"
+                                data-time="${hora}"
+                                data-date="${date}"
+                                data-format="${horario.formato}"
+                                data-sala="${horario.sala_nombre}"
+                                data-cinema="${cineCard.querySelector('.mc-cinema-name').innerText.split('\n')[0]}"
+                                data-sede="${cineCard.querySelector('.mc-cinema-badge')?.innerText || 'La Paz'}"
+                                data-title="<?php echo htmlspecialchars($pelicula['titulo']); ?>"
+                                data-runtime="${horario.duracion || <?php echo $pelicula['duracion_min']; ?>}"
+                                data-price="${parseFloat(horario.precio_base).toFixed(2)}"
+                                data-seats="${horario.asientos_disponibles || 100}"
+                                title="${tooltipInfo}">
+                                    ${hora}
+                                </a>`;
                     });
                     showtimeContainer.innerHTML = html;
+                    
+                    // Inicializar tooltips
                     $('[data-toggle="tooltip"]').tooltip();
                 } else {
+                    // Cambiar el mensaje de error por "No hay funciones disponibles"
                     showtimeContainer.innerHTML = '<p class="text-muted">No hay funciones disponibles para esta fecha.</p>';
                 }
             })
             .catch(error => {
-                showtimeContainer.innerHTML = '<p class="text-danger">Error al cargar horarios.</p>';
-                console.error('Error:', error);
+                // Mostrar mensaje de "No hay funciones disponibles" en vez de error
+                showtimeContainer.innerHTML = '<p class="text-muted">No hay funciones disponibles para esta fecha.</p>';
+                console.error('Error loading showtimes:', error);
             });
         });
     }
@@ -794,17 +882,10 @@ document.addEventListener('DOMContentLoaded', function() {
         trailerBtn.addEventListener('click', function() {
             trailerVideo.scrollIntoView({ behavior: 'smooth', block: 'center' });
             trailerVideo.play();
+            // Ocultar el botón de reproducción
+            if (playTrailerBtn) playTrailerBtn.style.display = 'none';
         });
     }
-    
-    if (trailerBtn && trailerVideo) {
-    trailerBtn.addEventListener('click', function() {
-        trailerVideo.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        trailerVideo.play();
-        // Añadir esta línea para ocultar el botón de reproducción
-        if (playTrailerBtn) playTrailerBtn.style.display = 'none';
-    });
-}
     
     if (playLocalBtn && youtubeEmbed) {
         playLocalBtn.addEventListener('click', function() {
@@ -866,6 +947,52 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Inicializar tooltips
     $('[data-toggle="tooltip"]').tooltip();
+    
+    // Configuración del modal de showtime
+        $('#showtimeModal').on('show.bs.modal', function (event) {
+        const button = $(event.relatedTarget);
+        const id = button.data('id');
+        const time = button.data('time');
+        const date = new Date(button.data('date'));
+        const format = button.data('format');
+        const sala = button.data('sala');
+        const cinema = button.data('cinema');
+        const sede = button.data('sede');  // Nueva línea para obtener la sede
+        const title = button.data('title');
+        const runtime = button.data('runtime');
+        const price = button.data('price');
+        const seats = button.data('seats');
+        
+        // Format date as "Sunday 11 May"
+        const options = { weekday: 'long', day: 'numeric', month: 'long' };
+        const formattedDate = date.toLocaleDateString('es-ES', options);
+        
+        // Calculate end time (time + runtime minutes)
+        const [hours, minutes] = time.split(':').map(num => parseInt(num, 10));
+        const endDate = new Date(date);
+        endDate.setHours(hours, minutes + parseInt(runtime, 10));
+        const endTime = endDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        
+        // Update modal contents
+        $('#modalDate').text(formattedDate);
+        $('#modalTime').text(time);
+        $('#modalTitle').text(title);
+        $('#modalRuntime').text(`Duración: ${runtime} min`);
+        $('#modalFormat').text(format);
+        $('#endTime').text(endTime);
+        $('#modalSala').text(sala || '1');
+        $('#modalCinema').text(cinema);
+        $('#modalSede').text(sede);  // Nueva línea para mostrar la sede
+        $('#modalPrice').text(price);
+        $('#modalSeats').text(seats);
+        
+        // Actualizar la imagen del poster
+        $('#modalPoster').attr('src', $('.mc-movie-poster').attr('src'));
+        $('#modalPoster').attr('alt', title);
+        
+        // Set the booking URL
+        $('#bookNowBtn').attr('href', `reserva.php?funcion=${id}`);
+    });
 });
 
 function copiarEnlace() {
