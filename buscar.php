@@ -54,6 +54,6 @@ require_once 'includes/header.php';
     <?php require_once 'includes/footer.php'; ?>
     
     <!-- JavaScript -->
-    <script src="public/js/search.js"></script>
+    <script src="assets/js/search.js"></script>
 </body>
 </html>

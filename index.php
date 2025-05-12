@@ -23,12 +23,13 @@ extract($data);
     
     <!-- CSS -->
     <link rel="stylesheet" href="assets/css/cartelera-home.css">
-    <link rel="stylesheet" href="public/css/home.css">
+    <link rel="stylesheet" href="assets/css/home.css">
     
     <!-- Font Awesome para iconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     
     <!-- Bootstrap CSS -->
+
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 <body>
@@ -52,7 +53,7 @@ extract($data);
     <!-- JavaScript -->
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
-    <script src="public/js/home.js"></script>
+    <script src="assets/js/home.js"></script>
     
     <!-- Script para función de favoritos -->
     <script>
@@ -80,6 +81,10 @@ extract($data);
             window.location.href = 'auth/login.php';
         <?php endif; ?>
     }
+    $(document).ready(function() {
+        $('.dropdown-toggle').dropdown();
+    });
     </script>
 </body>
 </html>
+
