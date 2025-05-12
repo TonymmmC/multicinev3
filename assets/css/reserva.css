@@ -255,3 +255,11 @@
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+.res-remaining-seats {
+    margin-top: 8px;
+    font-size: 0.9rem;
+    color: #ff9800;
+    text-align: center;
+    font-weight: 500;
+}

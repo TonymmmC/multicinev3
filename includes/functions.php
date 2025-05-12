@@ -70,3 +70,10 @@ function obtenerPosterUrl($peliculaId, $posterUrlDB = null) {
     // Si no se encontró una ruta local, devolver la URL de la BD o la imagen predeterminada
     return $posterUrlDB ?? 'assets/img/poster-default.jpg';
 }
+
+function redirigirAReserva($funcionId) {
+    if (!$funcionId) {
+        return "#";
+    }
+    return "reserva.php?funcion=" . $funcionId;
+}
