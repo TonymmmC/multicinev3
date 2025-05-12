@@ -99,7 +99,8 @@
 /* Main content */
 .res-main-content {
     flex-grow: 1;
-    background-color: white;
+    background-color: black;
+    
     padding: 20px;
 }
 

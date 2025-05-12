@@ -11,48 +11,34 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $jsonData = file_get_contents('php://input');
 $data = json_decode($jsonData, true);
 
-if (!$data || !isset($data['codigo']) || !isset($data['funcion_id'])) {
+if (!$data || !isset($data['codigo'])) {
     echo json_encode(['success' => false, 'message' => 'Datos incompletos']);
     exit;
 }
 
 $codigo = $data['codigo'];
-$funcionId = $data['funcion_id'];
 
 // Conectar a la base de datos
 require_once '../config/database.php';
 
-// Validar código promocional
-$query = "SELECT id, tipo, valor, fecha_fin, max_usos, usos_actuales 
-          FROM promociones 
-          WHERE codigo_promocional = ? 
-          AND activa = 1 
-          AND fecha_inicio <= NOW() 
-          AND fecha_fin >= NOW()";
-
+// Obtener detalles del código promocional
+$query = "SELECT tipo, valor FROM promociones WHERE codigo_promocional = ? AND activa = 1";
 $stmt = $conn->prepare($query);
 $stmt->bind_param("s", $codigo);
 $stmt->execute();
 $result = $stmt->get_result();
 
 if ($result->num_rows === 0) {
-    echo json_encode(['success' => false, 'message' => 'Código no válido o expirado']);
+    echo json_encode(['success' => false, 'message' => 'Código no encontrado']);
     exit;
 }
 
 $promocion = $result->fetch_assoc();
 
-// Verificar si el código ha alcanzado el máximo de usos
-if ($promocion['max_usos'] !== null && $promocion['usos_actuales'] >= $promocion['max_usos']) {
-    echo json_encode(['success' => false, 'message' => 'Este código ha alcanzado el límite máximo de usos']);
-    exit;
-}
-
 // Responder con éxito y datos del descuento
 echo json_encode([
     'success' => true,
     'tipo' => $promocion['tipo'],
-    'descuento' => $promocion['valor'],
-    'message' => 'Código aplicado correctamente'
+    'valor' => $promocion['valor']
 ]);
 ?>
