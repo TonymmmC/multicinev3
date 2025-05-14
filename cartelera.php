@@ -437,7 +437,7 @@ require_once 'includes/header.php';
                                      alt="<?php echo $pelicula['titulo']; ?>">
                                 
                                 <?php if ($pelicula['estado'] == 'estreno'): ?>
-                                    <span class="movie-badge new">New</span>
+                                    <span class="movie-badge new">Estreno</span>
                                 <?php endif; ?>
                             </div>
                             <div class="movie-info">

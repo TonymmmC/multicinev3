@@ -97,10 +97,10 @@ require_once 'includes/header.php';
                     <a href="#seguridad" class="list-group-item list-group-item-action" data-toggle="tab">
                         <i class="fas fa-lock"></i> Seguridad
                     </a>
-                    <a href="reservas.php" class="list-group-item list-group-item-action">
+                    <a href="perfil-reservas.php" class="list-group-item list-group-item-action">
                         <i class="fas fa-ticket-alt"></i> Mis Reservas
                     </a>
-                    <a href="favoritos.php" class="list-group-item list-group-item-action">
+                    <a href="perfil-favoritos.php" class="list-group-item list-group-item-action">
                         <i class="fas fa-heart"></i> Mis Favoritos
                     </a>
                     <?php if (isset($_SESSION['multipass_active']) && $_SESSION['multipass_active']): ?>

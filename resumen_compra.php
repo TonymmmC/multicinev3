@@ -252,7 +252,7 @@ function getProductImageUrl($producto, $esCombo = false) {
    return $baseDir . 'producto/generic.jpg';
 }
 
-require_once 'includes/header.php';
+//require_once 'includes/header.php';
 ?>
 
 <link href="assets/css/reserva.css" rel="stylesheet">
@@ -872,34 +872,35 @@ document.addEventListener('DOMContentLoaded', function() {
    });
    
    function addProductToSelection(id, price, name, options = null) {
-       // Verificar si el producto ya existe con las mismas opciones
-       const optionsStr = options ? JSON.stringify(options) : '';
-       const existingIndex = selectedProducts.findIndex(p => 
-           p.id === id && 
-           JSON.stringify(p.options) === optionsStr
-       );
-       
-       if (existingIndex !== -1) {
-           // Incrementar cantidad si ya existe con las mismas opciones
-           selectedProducts[existingIndex].quantity++;
-           updateProductList();
-       } else {
-           // Añadir nuevo producto
-           const productObj = {
-               id: id,
-               price: price,
-               name: name,
-               quantity: 1,
-               options: options
-           };
-           
-           selectedProducts.push(productObj);
-           updateProductList();
-       }
-       
-       // Actualizar input oculto y display
-       updateSelectedProducts();
-   }
+        // Verificar si el producto ya existe con las mismas opciones
+        const optionsStr = options ? JSON.stringify(options) : '';
+        const existingIndex = selectedProducts.findIndex(p => 
+            p.id === id && 
+            JSON.stringify(p.options) === optionsStr
+        );
+        
+        if (existingIndex !== -1) {
+            // Incrementar cantidad si ya existe con las mismas opciones
+            selectedProducts[existingIndex].quantity++;
+            updateProductList();
+        } else {
+            // Añadir nuevo producto
+            const productObj = {
+                id: id,
+                price: price,
+                name: name,
+                quantity: 1,
+                options: options,
+                is_combo: (options !== null) // Marcar como combo si tiene opciones
+            };
+            
+            selectedProducts.push(productObj);
+            updateProductList();
+        }
+        
+        // Actualizar input oculto y display
+        updateSelectedProducts();
+    }
    
    function updateProductList() {
        // Si hay productos, mostrar el contenedor

@@ -76,11 +76,26 @@ try {
     
     // Procesar productos si los hay
     $productosData = [];
+    $costoProductos = 0; // Changed from costoTotalProductos to costoProductos for consistency
     if (!empty($productosSeleccionados)) {
-        $productosData = json_decode($productosSeleccionados, true);
-        
-        foreach ($productosData as $producto) {
-            $costoProductos += $producto['price'] * $producto['quantity'];
+        try {
+            $productosData = json_decode($productosSeleccionados, true);
+            
+            // Verificar que la decodificación no falló
+            if ($productosData === null && json_last_error() !== JSON_ERROR_NONE) {
+                // Log el error
+                error_log('Error decodificando productos: ' . json_last_error_msg());
+                $productosData = [];
+            }
+            
+            // Calcular productos total
+            foreach ($productosData as $producto) {
+                $costoProductos += $producto['price'] * $producto['quantity']; // Changed to costoProductos
+            }
+        } catch (Exception $e) {
+            error_log('Excepción procesando productos: ' . $e->getMessage());
+            $productosData = [];
+            $costoProductos = 0; // Changed to costoProductos
         }
     }
     
