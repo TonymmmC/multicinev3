@@ -164,7 +164,7 @@ while ($metodo = $resultMetodosPago->fetch_assoc()) {
 }
 
 //require_once 'includes/header.php';
-?>
+//?>
 
 <link href="assets/css/reserva.css" rel="stylesheet">
 <link href="assets/css/resumen.css" rel="stylesheet">

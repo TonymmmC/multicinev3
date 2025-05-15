@@ -76,7 +76,8 @@ try {
     
     // Procesar productos si los hay
     $productosData = [];
-    $costoProductos = 0; // Changed from costoTotalProductos to costoProductos for consistency
+    $costoTotalProductos = 0; // I'd keep this as costoTotalProductos since it's used elsewhere
+
     if (!empty($productosSeleccionados)) {
         try {
             $productosData = json_decode($productosSeleccionados, true);
@@ -86,16 +87,19 @@ try {
                 // Log el error
                 error_log('Error decodificando productos: ' . json_last_error_msg());
                 $productosData = [];
-            }
-            
-            // Calcular productos total
-            foreach ($productosData as $producto) {
-                $costoProductos += $producto['price'] * $producto['quantity']; // Changed to costoProductos
+            } else {
+                // Calcular productos total - solo si la decodificación fue exitosa
+                foreach ($productosData as $producto) {
+                    // Verificar que tiene las propiedades requeridas
+                    if (isset($producto['price']) && isset($producto['quantity'])) {
+                        $costoTotalProductos += $producto['price'] * $producto['quantity'];
+                    }
+                }
             }
         } catch (Exception $e) {
             error_log('Excepción procesando productos: ' . $e->getMessage());
             $productosData = [];
-            $costoProductos = 0; // Changed to costoProductos
+            $costoTotalProductos = 0;
         }
     }
     
