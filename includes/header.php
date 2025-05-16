@@ -36,6 +36,9 @@ $conn = require __DIR__ . '/../config/database.php';
                     <a class="nav-link" href="cines.php">Cines</a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link" href="candybar.php">CandyBar</a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link" href="multipass.php">Club MultiPass</a>
                 </li>
             </ul>
@@ -54,13 +57,13 @@ $conn = require __DIR__ . '/../config/database.php';
             </div>
             
             <ul class="navbar-nav ml-auto">
-                <!-- Icono del carrito de compras -->
+                <!-- Icono del carrito de compras
                 <li class="nav-item">
                     <a class="nav-link" href="carrito.php">
                         <i class="fas fa-shopping-cart"></i>
                         <span class="badge badge-pill badge-warning cart-count">0</span>
                     </a>
-                </li>
+                </li>-->
                 
                 <?php if (estaLogueado()): ?>
                     <li class="nav-item dropdown">
